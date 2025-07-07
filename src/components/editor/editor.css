@@ -1,0 +1,15 @@
+/* editor.css */
+
+.editor-container {
+  border: 1px solid #ddd;
+  padding: 10px;
+  min-height: 200px;
+  border-radius: 6px;
+  background-color: #fff;
+  font-size: 16px;
+}
+
+.editor-container:focus {
+  outline: none;
+  border-color: #0070f3;
+}

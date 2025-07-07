@@ -1,0 +1,66 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String   @id @default(cuid())
+  name          String?
+  email         String   @unique
+  emailVerified DateTime?
+  password      String?
+  image         String?
+  role          Role     @default(READER)
+  posts         Post[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Post {
+  id             String       @id @default(cuid())
+  title          String
+  content        String       @db.MediumText
+  featureImage   String
+  tags           String?
+  status         PostStatus   @default(DRAFT)
+  author         User?        @relation(fields: [authorId], references: [id])
+  authorId       String?
+  categories     Category[] @relation("PostCategories")
+  subcategories  Subcategory[] @relation("PostSubcategories")
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+}
+
+model Category {
+  id             Int         @id @default(autoincrement())
+  name           String
+  slug           String      @unique
+  subcategories  Subcategory[]
+  posts          Post[]      @relation("PostCategories")
+}
+
+model Subcategory {
+  id         Int     @id @default(autoincrement())
+  name       String
+  slug       String  @unique
+  category   Category @relation(fields: [categoryId], references: [id])
+  categoryId Int
+  posts      Post[]  @relation("PostSubcategories")
+}
+
+enum Role {
+  READER
+  REPORTER
+  EDITOR
+  ADMIN
+}
+
+enum PostStatus {
+  DRAFT
+  PENDING
+  PUBLISHED
+}

@@ -1,0 +1,39 @@
+
+{
+  "users": [
+    {
+      "id": "user1",
+      "name": "রফিক ইসলাম",
+      "email": "rafik@example.com",
+      "image": "/images/authors/rafik.jpg",
+      "role": "REPORTER"
+    }
+  ],
+  "categories": [
+    {
+      "id": 1,
+      "name": "ফুটবল",
+      "slug": "football"
+    }
+  ],
+  "posts": [
+    {
+      "id": "post1",
+      "title": "ম্যানচেস্টার ইউনাইটেডের নতুন কোচ ঘোষণা",
+      "content": "বিস্তারিত খবরের কন্টেন্ট এখানে...",
+      "status": "PUBLISHED",
+      "authorId": "user1",
+      "categoryId": 1,
+      "createdAt": "2023-05-15T10:30:00Z"
+    }
+  ],
+  "liveScores": [
+    {
+      "id": 1,
+      "match": "BAN vs ENG",
+      "score": "BAN 245/6 (85.2 ov)",
+      "status": "Day 2 - Session 2",
+      "link": "/cricket/bangladesh-cricket/live-1"
+    }
+  ]
+}
