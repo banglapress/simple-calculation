@@ -1,31 +1,45 @@
+// src/app/api/upload/route.ts
+
 import { NextRequest, NextResponse } from "next/server";
-import path from "path";
-import fs from "fs/promises";
+import { v2 as cloudinary } from "cloudinary";
+
+// ✅ Configure Cloudinary with env variables
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME!,
+  api_key: process.env.CLOUDINARY_API_KEY!,
+  api_secret: process.env.CLOUDINARY_API_SECRET!,
+});
 
 export async function POST(req: NextRequest) {
-  const data = await req.formData();
-  const file = data.get("file") as File;
+  const formData = await req.formData();
+  const file = formData.get("file") as File;
 
-  if (!file) return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
+  if (!file) {
+    return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
+  }
 
-  const bytes = await file.arrayBuffer();
-  const buffer = Buffer.from(bytes);
+  const arrayBuffer = await file.arrayBuffer();
+  const buffer = Buffer.from(arrayBuffer);
 
-  // Create folder structure: /public/uploads/yyyy/mm/dd/
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-  const folderPath = path.join(process.cwd(), "public", "uploads", year.toString(), month, day);
+  try {
+    const uploadResult = await new Promise((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        {
+          folder: "khela-tv", // ✅ Optional folder name in Cloudinary
+          resource_type: "image",
+        },
+        (error, result) => {
+          if (error || !result) return reject(error);
+          resolve(result);
+        }
+      );
 
-  await fs.mkdir(folderPath, { recursive: true });
+      uploadStream.end(buffer);
+    });
 
-  const uniqueName = `img-${Date.now()}-${Math.random().toString(36).substring(2, 8)}.jpg`;
-  const filePath = path.join(folderPath, uniqueName);
-
-  await fs.writeFile(filePath, buffer);
-
-  const fileUrl = `/uploads/${year}/${month}/${day}/${uniqueName}`;
-
-  return NextResponse.json({ url: fileUrl });
+    return NextResponse.json({ url: (uploadResult as any).secure_url });
+  } catch (error) {
+    console.error("Cloudinary upload error:", error);
+    return NextResponse.json({ error: "Upload failed" }, { status: 500 });
+  }
 }

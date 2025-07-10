@@ -124,7 +124,7 @@ export default async function HomePage() {
       <BreakingNews />
       <LiveScoreBar />
 
-      <main className="max-w-6xl mx-auto p-4 space-y-10">
+      <main className="max-w-7xl mx-auto p-4 space-y-10">
         {/* LEAD + SECOND LEAD BLOCK */}
         <div className="grid md:grid-cols-12 gap-6">
           {leadPost && (
