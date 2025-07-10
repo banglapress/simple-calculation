@@ -6,8 +6,11 @@ import Link from "next/link";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import Image from "next/image";
+import { Post } from "@prisma/client";
 
-export default async function PostPage({ params }: {
+export default async function PostPage({
+  params,
+}: {
   params: { category: string; subcategory: string; postId: string };
 }) {
   const post = await prisma.post.findUnique({
@@ -29,18 +32,30 @@ export default async function PostPage({ params }: {
     },
     orderBy: { createdAt: "desc" },
     take: 5,
+    include: {
+      categories: true,
+      subcategories: true,
+    },
   });
 
   const editorsPick = await prisma.post.findMany({
     where: { status: "PUBLISHED", placement: "EDITORS_PICK" },
     orderBy: { updatedAt: "desc" },
     take: 3,
+    include: {
+      categories: true,
+      subcategories: true,
+    },
   });
 
   const trending = await prisma.post.findMany({
     where: { status: "PUBLISHED", placement: "TRENDING" },
     orderBy: { updatedAt: "desc" },
     take: 3,
+    include: {
+      categories: true,
+      subcategories: true,
+    },
   });
 
   return (
@@ -57,7 +72,13 @@ export default async function PostPage({ params }: {
           </div>
 
           {post.featureImage && (
-            <img src={post.featureImage} className="rounded w-full" />
+            <Image
+              src={post.featureImage}
+              className="rounded w-full"
+              alt={post.title}
+              width={400}
+              height={75}
+            />
           )}
 
           <div
@@ -66,29 +87,32 @@ export default async function PostPage({ params }: {
           />
 
           <div className="mt-6 border-t pt-4 space-x-3">
-  <p className="text-sm text-gray-600 mb-1">🔗 শেয়ার করুন:</p>
-  <a
-    href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(
-      process.env.NEXT_PUBLIC_SITE_URL + `/${params.category}/${params.subcategory}/${post.id}`
-    )}`}
-    target="_blank"
-    rel="noopener noreferrer"
-    className="text-blue-600 underline text-sm"
-  >
-    Facebook
-  </a>
-  <a
-    href={`https://wa.me/?text=${encodeURIComponent(
-      post.title + " " + process.env.NEXT_PUBLIC_SITE_URL + `/${params.category}/${params.subcategory}/${post.id}`
-    )}`}
-    target="_blank"
-    rel="noopener noreferrer"
-    className="text-green-600 underline text-sm"
-  >
-    WhatsApp
-  </a>
-</div>
-
+            <p className="text-sm text-gray-600 mb-1">🔗 শেয়ার করুন:</p>
+            <a
+              href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(
+                process.env.NEXT_PUBLIC_SITE_URL +
+                  `/${params.category}/${params.subcategory}/${post.id}`
+              )}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 underline text-sm"
+            >
+              Facebook
+            </a>
+            <a
+              href={`https://wa.me/?text=${encodeURIComponent(
+                post.title +
+                  " " +
+                  process.env.NEXT_PUBLIC_SITE_URL +
+                  `/${params.category}/${params.subcategory}/${post.id}`
+              )}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-green-600 underline text-sm"
+            >
+              WhatsApp
+            </a>
+          </div>
 
           <div className="text-sm mt-4 text-gray-400">
             🏷️ ট্যাগ: {post.tags}
@@ -108,7 +132,16 @@ export default async function PostPage({ params }: {
   );
 }
 
-function Section({ title, posts }: { title: string; posts: any[] }) {
+function Section({
+  title,
+  posts,
+}: {
+  title: string;
+  posts: (Post & {
+    categories?: { slug: string }[];
+    subcategories?: { slug: string }[];
+  })[];
+}) {
   return (
     <div>
       <h3 className="text-lg font-bold font-[NotoSerifBengali] mb-2 border-b pb-1">{title}</h3>
