@@ -84,7 +84,7 @@ export default async function PostPage({
     <>
       <Navbar />
 
-      <main className="max-w-6xl mx-auto grid md:grid-cols-12 gap-6 p-4">
+      <main className="max-w-7xl mx-auto grid md:grid-cols-12 gap-6 p-4">
         <div className="md:col-span-8 space-y-4">
           <h1 className="text-3xl text-slate-700 font-[Cholontika]">{transformedPost.title}</h1>
           <div className="text-sm text-gray-500">

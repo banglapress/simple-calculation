@@ -1,3 +1,5 @@
+// src/components/reporter/PostEditorForm.tsx
+
 "use client";
 
 import { useState, useEffect, FormEvent, ChangeEvent } from "react";
@@ -93,12 +95,6 @@ export default function PostEditorForm() {
       />
 
       <LexicalEditor onChange={setContent} />
-
-        {/* placeholder="(এখানে Lexical আসবে)"
-        className="w-full border p-2 rounded h-40"
-        value={content}
-        onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setContent(e.target.value)}
-      /> */}
 
       <div>
         <label>📸 ফিচার ছবি:</label>

@@ -1,7 +1,7 @@
 // src/app/api/upload/route.ts
 
 import { NextRequest, NextResponse } from "next/server";
-import { v2 as cloudinary } from "cloudinary";
+import { v2 as cloudinary, UploadApiResponse } from "cloudinary";
 
 // ✅ Configure Cloudinary with env variables
 cloudinary.config({
@@ -22,10 +22,10 @@ export async function POST(req: NextRequest) {
   const buffer = Buffer.from(arrayBuffer);
 
   try {
-    const uploadResult = await new Promise((resolve, reject) => {
+    const uploadResult: UploadApiResponse = await new Promise((resolve, reject) => {
       const uploadStream = cloudinary.uploader.upload_stream(
         {
-          folder: "khela-tv", // ✅ Optional folder name in Cloudinary
+          folder: "khela-tv",
           resource_type: "image",
         },
         (error, result) => {
@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
       uploadStream.end(buffer);
     });
 
-    return NextResponse.json({ url: (uploadResult as any).secure_url });
+    return NextResponse.json({ url: uploadResult.secure_url });
   } catch (error) {
     console.error("Cloudinary upload error:", error);
     return NextResponse.json({ error: "Upload failed" }, { status: 500 });
