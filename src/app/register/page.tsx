@@ -1,8 +1,8 @@
+// src/app/register/page.tsx
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import axios from "axios";
+import { useState, FormEvent } from "react";
+import axios, { AxiosError } from "axios";
 import { signIn } from "next-auth/react";
 
 export default function RegisterPage() {
@@ -10,16 +10,21 @@ export default function RegisterPage() {
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const router = useRouter();
 
-  const handleSubmit = async (e: any) => {
+
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     try {
       await axios.post("/api/register", { email, name, password });
       // Auto login after registration
-      await signIn("credentials", { email, password, callbackUrl: "/dashboard" });
-    } catch (err: any) {
-      setError(err.response?.data?.message || "Registration failed");
+      await signIn("credentials", {
+        email,
+        password,
+        callbackUrl: "/dashboard",
+      });
+    } catch (err) {
+      const error = err as AxiosError<{ message?: string }>;
+      setError(error.response?.data?.message || "Registration failed");
     }
   };
 

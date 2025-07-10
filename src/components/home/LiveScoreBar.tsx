@@ -4,13 +4,22 @@
 
 import { useEffect, useState } from "react";
 
+type LiveScore = {
+  teamA: string;
+  teamB: string;
+  scoreA: number;
+  scoreB: number;
+  status: string;
+  commentaryId?: string;
+};
+
 export default function LiveScoreBar() {
-  const [score, setScore] = useState<any>(null);
+  const [score, setScore] = useState<LiveScore | null>(null);
 
   useEffect(() => {
     fetch("/api/public/livescore")
       .then((res) => res.json())
-      .then(setScore);
+      .then((data: LiveScore) => setScore(data));
   }, []);
 
   if (!score) return null;
