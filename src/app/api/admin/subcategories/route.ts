@@ -1,11 +1,11 @@
-// src/app/api/admin/subcategories/route.ts
-
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { slugify } from "@/lib/slugify";
 
 export async function POST(req: NextRequest) {
   try {
-    const { name, slug, categoryId } = await req.json();
+    const { name, categoryId } = await req.json();
+    const slug = slugify(name);
 
     const subcategory = await prisma.subcategory.create({
       data: {
@@ -24,7 +24,6 @@ export async function POST(req: NextRequest) {
   }
 }
 
-
 export async function DELETE(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const id = parseInt(searchParams.get("id") || "");
@@ -40,7 +39,7 @@ export async function DELETE(req: NextRequest) {
   }
 }
 
-
+// UPDATE subcategory name + regenerate slug
 export async function PATCH(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const id = parseInt(searchParams.get("id") || "");
@@ -49,7 +48,7 @@ export async function PATCH(req: NextRequest) {
   try {
     const sub = await prisma.subcategory.update({
       where: { id },
-      data: { name },
+      data: { name, slug: slugify(name) },
     });
     return NextResponse.json(sub);
   } catch {

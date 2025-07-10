@@ -1,19 +1,16 @@
-// src/app/api/admin/categories/route.ts
-
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { slugify } from "@/lib/slugify";
 
 // CREATE category
 export async function POST(req: NextRequest) {
   try {
-    const { name, slug } = await req.json();
+    const { name } = await req.json();
+    const slug = slugify(name);
 
     const existing = await prisma.category.findUnique({ where: { slug } });
     if (existing) {
-      return NextResponse.json(
-        { message: "Slug already exists" },
-        { status: 400 }
-      );
+      return NextResponse.json({ message: "Slug already exists" }, { status: 400 });
     }
 
     const category = await prisma.category.create({
@@ -58,19 +55,20 @@ export async function DELETE(req: NextRequest) {
   }
 }
 
-
+// UPDATE category name + regenerate slug
 export async function PATCH(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const id = parseInt(searchParams.get("id") || "");
   const { name } = await req.json();
 
   try {
-    const category = await prisma.category.update({
+    const updated = await prisma.category.update({
       where: { id },
-      data: { name },
+      data: { name, slug: slugify(name) },
     });
-    return NextResponse.json(category);
-  } catch {
+    return NextResponse.json(updated);
+  } catch (error) {
+    console.log(error)
     return NextResponse.json({ message: "Update failed" }, { status: 500 });
   }
 }

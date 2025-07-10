@@ -1,56 +1,15 @@
+// prisma/schema.prisma
+
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "mysql"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id            String   @id @default(cuid())
-  name          String?
-  email         String   @unique
-  emailVerified DateTime?
-  password      String?
-  image         String?
-  role          Role     @default(READER)
-  posts         Post[]
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-}
-
-model Post {
-  id             String       @id @default(cuid())
-  title          String
-  content        String       @db.MediumText
-  featureImage   String
-  tags           String?
-  status         PostStatus   @default(DRAFT)
-  author         User?        @relation(fields: [authorId], references: [id])
-  authorId       String?
-  categories     Category[] @relation("PostCategories")
-  subcategories  Subcategory[] @relation("PostSubcategories")
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
-}
-
-model Category {
-  id             Int         @id @default(autoincrement())
-  name           String
-  slug           String      @unique
-  subcategories  Subcategory[]
-  posts          Post[]      @relation("PostCategories")
-}
-
-model Subcategory {
-  id         Int     @id @default(autoincrement())
-  name       String
-  slug       String  @unique
-  category   Category @relation(fields: [categoryId], references: [id])
-  categoryId Int
-  posts      Post[]  @relation("PostSubcategories")
-}
+// ===================== ENUMS =====================
 
 enum Role {
   READER
@@ -63,4 +22,77 @@ enum PostStatus {
   DRAFT
   PENDING
   PUBLISHED
+}
+
+enum Placement {
+  NONE
+  LEAD
+  SECOND_LEAD
+  EDITORS_PICK
+  TRENDING
+}
+
+// ===================== MODELS =====================
+
+model User {
+  id            String   @id @default(cuid())
+  name          String?
+  email         String   @unique
+  emailVerified DateTime?
+  password      String?
+  image         String?
+  role          Role     @default(READER)
+  posts         Post[]   // One-to-many relation with Post
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Post {
+  id             String         @id @default(cuid())
+  title          String
+  content        String         @db.Text
+  featureImage   String
+  tags           String?
+  status         PostStatus     @default(DRAFT)
+  isBreaking     Boolean        @default(false)
+  placement      Placement      @default(NONE)
+  author         User?          @relation(fields: [authorId], references: [id])
+  authorId       String?
+  categories     Category[]     @relation("PostCategories")
+  subcategories  Subcategory[]  @relation("PostSubcategories")
+  liveScores     LiveScore[]    // One-to-many relation with LiveScore
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+}
+
+model Category {
+  id             Int            @id @default(autoincrement())
+  name           String
+  slug           String         @unique
+  subcategories  Subcategory[]
+  posts          Post[]         @relation("PostCategories")
+}
+
+model Subcategory {
+  id         Int      @id @default(autoincrement())
+  name       String
+  slug       String   @unique
+  category   Category @relation(fields: [categoryId], references: [id])
+  categoryId Int
+  posts      Post[]   @relation("PostSubcategories")
+}
+
+model LiveScore {
+  id            String   @id @default(cuid())
+  tournament    String
+  venue         String
+  matchStatus   String
+  teamOne       String
+  teamOneScore  String
+  teamTwo       String
+  teamTwoScore  String
+  commentary    Post?    @relation(fields: [commentaryId], references: [id])
+  commentaryId  String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }

@@ -1,51 +1,59 @@
-// src/app/api/editor/posts/[id]/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-// GET post by ID
-export async function GET(_: NextRequest, { params }: { params: { id: string } }) {
+// ✅ Correct GET handler
+export async function GET(
+  req: NextRequest,
+  context: { params: { id: string } }
+) {
+  const id = context.params.id; // ✅ Access params via context
+
   const post = await prisma.post.findUnique({
-    where: { id: params.id },
-    include: { categories: true, subcategories: true },
+    where: { id },
+    include: {
+      categories: true,
+      subcategories: true,
+    },
   });
+
   return NextResponse.json(post);
 }
 
-// UPDATE post
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+// ✅ Correct PUT handler
+export async function PUT(
+  req: NextRequest,
+  context: { params: { id: string } }
+) {
+  const id = context.params.id; // ✅ Same fix here
+
   const {
     title,
     content,
     tags,
     status,
+    placement,
     featureImage,
+    isBreaking,
     authorId,
     categoryIds,
     subcategoryIds,
   } = await req.json();
 
-  try {
-    const updated = await prisma.post.update({
-      where: { id: params.id },
-      data: {
-        title,
-        content,
-        tags,
-        status,
-        featureImage,
-        authorId,
-        categories: {
-          set: categoryIds.map((id: number) => ({ id })),
-        },
-        subcategories: {
-          set: subcategoryIds.map((id: number) => ({ id })),
-        },
-      },
-    });
+  const updated = await prisma.post.update({
+    where: { id },
+    data: {
+      title,
+      content,
+      tags,
+      status,
+      placement,
+      featureImage,
+      isBreaking,
+      author: { connect: { id: authorId } },
+      categories: { set: categoryIds.map((id: number) => ({ id })) },
+      subcategories: { set: subcategoryIds.map((id: number) => ({ id })) },
+    },
+  });
 
-    return NextResponse.json(updated);
-  } catch (error) {
-    console.error("UPDATE ERROR:", error);
-    return NextResponse.json({ message: "Update failed" }, { status: 500 });
-  }
+  return NextResponse.json(updated);
 }

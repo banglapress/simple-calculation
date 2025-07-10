@@ -11,9 +11,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }
 
-  const { title, content, featureImage, categoryId, subcategoryId, tags, status } = await req.json();
+  const {
+    title,
+    content,
+    featureImage,
+    categoryIds = [],
+    subcategoryIds = [],
+    tags,
+    status,
+  } = await req.json();
 
-  const user = await prisma.user.findUnique({ where: { email: session.user.email } });
+  const user = await prisma.user.findUnique({
+    where: { email: session.user.email },
+  });
 
   if (!user) {
     return NextResponse.json({ message: "User not found" }, { status: 404 });
@@ -27,15 +37,22 @@ export async function POST(req: NextRequest) {
         featureImage,
         status,
         tags,
-        authorId: user.id,
-        categoryId: parseInt(categoryId),
-        subcategoryId: subcategoryId ? parseInt(subcategoryId) : null,
+        author: { connect: { id: user.id } },
+        categories: {
+          connect: categoryIds.map((id: number) => ({ id })),
+        },
+        subcategories: {
+          connect: subcategoryIds.map((id: number) => ({ id })),
+        },
       },
     });
 
     return NextResponse.json(post);
   } catch (error) {
     console.error("POST ERROR:", error);
-    return NextResponse.json({ message: "Failed to create post" }, { status: 500 });
+    return NextResponse.json(
+      { message: "Failed to create post" },
+      { status: 500 }
+    );
   }
 }

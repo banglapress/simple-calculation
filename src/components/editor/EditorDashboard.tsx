@@ -6,11 +6,24 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 import Link from "next/link";
 
+// --------------------
+// Define Post type
+// --------------------
+interface Post {
+  id: string;
+  title: string;
+  status: "DRAFT" | "PENDING" | "PUBLISHED";
+  createdAt: string;
+  author?: {
+    name: string;
+  };
+}
+
 export default function EditorDashboard() {
-  const [posts, setPosts] = useState([]);
+  const [posts, setPosts] = useState<Post[]>([]);
 
   const fetchPosts = async () => {
-    const res = await axios.get("/api/editor/posts");
+    const res = await axios.get<Post[]>("/api/editor/posts");
     setPosts(res.data);
   };
 
@@ -21,6 +34,7 @@ export default function EditorDashboard() {
   const publishPost = async (id: string) => {
     const confirmPublish = confirm("আপনি কি এই পোস্টটি প্রকাশ করতে চান?");
     if (!confirmPublish) return;
+
     await axios.patch(`/api/editor/posts?id=${id}`, { status: "PUBLISHED" });
     fetchPosts();
   };
@@ -28,11 +42,14 @@ export default function EditorDashboard() {
   return (
     <div className="space-y-4">
       {posts.length === 0 && <p>📭 কোনো পোস্ট নেই</p>}
-      {posts.map((post: any) => (
+
+      {posts.map((post) => (
         <div key={post.id} className="border rounded p-4 bg-white shadow">
           <div className="text-lg font-bold">{post.title}</div>
+
           <div className="text-sm text-gray-500">
-            {post.status} | {post.author?.name || "Unknown"} | {new Date(post.createdAt).toLocaleString("bn-BD")}
+            {post.status} | {post.author?.name || "Unknown"} |{" "}
+            {new Date(post.createdAt).toLocaleString("bn-BD")}
           </div>
 
           <div className="mt-2 flex gap-3">
