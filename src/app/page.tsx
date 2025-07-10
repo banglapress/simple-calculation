@@ -25,10 +25,12 @@ interface Post {
   featureImage: string;
   status: "DRAFT" | "PENDING" | "PUBLISHED";
   placement: "NONE" | "LEAD" | "SECOND_LEAD" | "EDITORS_PICK" | "TRENDING";
-  updatedAt: string;
+  updatedAt: Date; // <-- changed from string to Date
+  createdAt: Date; // <-- add this too if needed
   categories: Category[];
   subcategories: Subcategory[];
 }
+
 
 export default async function HomePage() {
   const [

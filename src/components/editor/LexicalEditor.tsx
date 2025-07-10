@@ -11,6 +11,9 @@ import { $generateNodesFromDOM } from "@lexical/html";
 import { $getRoot, $insertNodes } from "lexical";
 import { useEffect } from "react";
 
+// ✅ Correct named import
+import { LexicalErrorBoundary } from "@lexical/react/LexicalErrorBoundary";
+
 function EditorInitializer({ html }: { html: string }) {
   const [editor] = useLexicalComposerContext();
 
@@ -47,13 +50,17 @@ export default function LexicalEditor({
   return (
     <LexicalComposer initialConfig={initialConfig}>
       <EditorInitializer html={initialHtml} />
+
       <RichTextPlugin
         contentEditable={
           <ContentEditable className="border p-2 min-h-[200px] rounded outline-none" />
         }
         placeholder={<div className="text-gray-400 p-2">এখানে লিখুন...</div>}
+        ErrorBoundary={LexicalErrorBoundary} // ✅ Pass component directly
       />
+
       <HistoryPlugin />
+
       <OnChangePlugin
         onChange={(editorState, editor) => {
           editorState.read(() => {

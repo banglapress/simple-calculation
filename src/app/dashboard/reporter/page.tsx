@@ -1,112 +1,158 @@
-// src/app/dashboard/reporter/page.tsx
-import Link from "next/link";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+// src/app/[category]/[subcategory]/[postId]/page.tsx
 import { prisma } from "@/lib/prisma";
-import { signOut } from "next-auth/react";
+import { notFound } from "next/navigation";
+import Link from "next/link";
+import Navbar from "@/components/layout/Navbar";
+import Footer from "@/components/layout/Footer";
+import Image from "next/image";
 
-export default async function ReporterDashboard() {
-  const session = await getServerSession(authOptions);
-  const user = await prisma.user.findUnique({
-    where: { email: session?.user?.email || "" },
+type PageProps = {
+  params: {
+    category: string;
+    subcategory: string;
+    postId: string;
+  };
+};
+
+type PostSummary = {
+  id: string;
+  title: string;
+  featureImage: string;
+  categories?: { slug: string }[];
+  subcategories?: { slug: string }[];
+};
+
+export default async function PostPage({ params }: PageProps) {
+  const { category, subcategory, postId } = params;
+
+  const post = await prisma.post.findUnique({
+    where: { id: postId },
+    include: {
+      author: true,
+      categories: true,
+      subcategories: true,
+    },
   });
 
-  const posts = await prisma.post.findMany({
-    where: { authorId: user?.id },
+  if (!post || post.status !== "PUBLISHED") return notFound();
+
+  const recent = await prisma.post.findMany({
+    where: {
+      status: "PUBLISHED",
+      categories: { some: { id: post.categories[0]?.id || 0 } },
+      id: { not: post.id },
+    },
     orderBy: { createdAt: "desc" },
-    take: 10,
+    take: 5,
+  });
+
+  const editorsPick = await prisma.post.findMany({
+    where: { status: "PUBLISHED", placement: "EDITORS_PICK" },
+    orderBy: { updatedAt: "desc" },
+    take: 3,
+  });
+
+  const trending = await prisma.post.findMany({
+    where: { status: "PUBLISHED", placement: "TRENDING" },
+    orderBy: { updatedAt: "desc" },
+    take: 3,
   });
 
   return (
-    <div className="max-w-5xl mx-auto py-6 px-4 space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-xl font-bold">📢 রিপোর্টার প্যানেল</h1>
-        <Link href="/dashboard/reporter/new" className="text-blue-600 underline">
-          ➕ নতুন পোস্ট লিখুন
-        </Link>
-      </div>
+    <>
+      <Navbar />
 
-      <div className="border p-4 rounded bg-white shadow-sm">
-        <h2 className="font-bold mb-2">👤 প্রোফাইল</h2>
-        <p>নাম: {user?.name || "অজানা"}</p>
-        <p>ইমেইল: {user?.email}</p>
-        <p>ভূমিকা: রিপোর্টার</p>
-        <form
-          action="/api/auth/signout"
-          method="POST"
-          className="mt-3"
-        >
-          <button
-            type="submit"
-            className="text-red-600 underline text-sm"
-          >
-            🚪 লগআউট করুন
-          </button>
-        </form>
-      </div>
-
-      <div className="border p-4 rounded bg-white shadow-sm">
-        <h2 className="font-bold mb-2">🔑 পাসওয়ার্ড পরিবর্তন</h2>
-        <form action="/api/reporter/update-password" method="POST" className="space-y-2">
-          <input
-            type="password"
-            name="currentPassword"
-            placeholder="পুরানো পাসওয়ার্ড"
-            className="w-full border p-2 rounded"
-            required
-          />
-          <input
-            type="password"
-            name="newPassword"
-            placeholder="নতুন পাসওয়ার্ড"
-            className="w-full border p-2 rounded"
-            required
-          />
-          <button
-            type="submit"
-            className="bg-blue-600 text-white px-4 py-2 rounded"
-          >
-            ✅ পাসওয়ার্ড আপডেট করুন
-          </button>
-        </form>
-      </div>
-
-      <div>
-        <h2 className="font-bold mb-2">🗂 আপনার পোস্টসমূহ</h2>
-        {posts.length === 0 ? (
-          <p>আপনার কোনো পোস্ট নেই।</p>
-        ) : (
-          <div className="space-y-3">
-            {posts.map((post) => (
-              <div
-                key={post.id}
-                className="border rounded p-3 bg-white shadow hover:bg-gray-50 transition"
-              >
-                <Link href={`/dashboard/reporter/edit/${post.id}`} className="block font-semibold text-lg text-blue-700">
-                  {post.title}
-                </Link>
-                <p className="text-sm text-gray-500">
-                  ✍️ {new Date(post.createdAt).toLocaleString("bn-BD")} • স্ট্যাটাস:{" "}
-                  <span
-                    className={`font-medium ${
-                      post.status === "DRAFT"
-                        ? "text-gray-500"
-                        : post.status === "PENDING"
-                        ? "text-orange-500"
-                        : "text-green-600"
-                    }`}
-                  >
-                    {post.status === "DRAFT"
-                      ? "খসড়া"
-                      : post.status === "PENDING"
-                      ? "সম্পাদকের অনুমতির অপেক্ষায়"
-                      : "প্রকাশিত"}
-                  </span>
-                </p>
-              </div>
-            ))}
+      <main className="max-w-6xl mx-auto grid md:grid-cols-12 gap-6 p-4">
+        <div className="md:col-span-8 space-y-4">
+          <h1 className="text-3xl text-slate-700 font-[Cholontika]">{post.title}</h1>
+          <div className="text-sm text-gray-500">
+            ✍️ {post.author?.name} •{" "}
+            {new Date(post.createdAt).toLocaleString("bn-BD")}
           </div>
-        )}
+
+          {post.featureImage && (
+            <Image
+              src={post.featureImage}
+              className="rounded w-full"
+              alt={post.title}
+              width={400}
+              height={75}
+            />
+          )}
+
+          <div
+            className="prose prose-neutral max-w-none font-[NotoSerifBengali] text-xl text-neutral-700"
+            dangerouslySetInnerHTML={{ __html: post.content }}
+          />
+
+          <div className="mt-6 border-t pt-4 space-x-3">
+            <p className="text-sm text-gray-600 mb-1">🔗 শেয়ার করুন:</p>
+            <a
+              href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(
+                process.env.NEXT_PUBLIC_SITE_URL +
+                  `/${category}/${subcategory}/${post.id}`
+              )}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 underline text-sm"
+            >
+              Facebook
+            </a>
+            <a
+              href={`https://wa.me/?text=${encodeURIComponent(
+                post.title +
+                  " " +
+                  process.env.NEXT_PUBLIC_SITE_URL +
+                  `/${category}/${subcategory}/${post.id}`
+              )}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-green-600 underline text-sm"
+            >
+              WhatsApp
+            </a>
+          </div>
+
+          <div className="text-sm mt-4 text-gray-400">
+            🏷️ ট্যাগ: {post.tags}
+          </div>
+        </div>
+
+        <aside className="md:col-span-4 space-y-6">
+          <Section title="⚽ আরও খবর" posts={recent} />
+          <Section title="⭐ নির্বাচিত সংবাদ" posts={editorsPick} />
+          <Section title="🔥 ট্রেন্ডিং" posts={trending} />
+        </aside>
+      </main>
+
+      <Footer />
+    </>
+  );
+}
+
+function Section({ title, posts }: { title: string; posts: PostSummary[] }) {
+  return (
+    <div>
+      <h3 className="text-lg font-bold font-[NotoSerifBengali] mb-2 border-b pb-1">
+        {title}
+      </h3>
+      <div className="space-y-2">
+        {posts.map((p) => (
+          <Link
+            key={p.id}
+            href={`/${p.categories?.[0]?.slug || "category"}/${p.subcategories?.[0]?.slug || "sub"}/${p.id}`}
+            className="flex gap-2 text-sm group"
+          >
+            <Image
+              src={p.featureImage}
+              className="w-16 h-12 object-cover rounded"
+              alt={p.title}
+              height={75}
+              width={300}
+            />
+            <span className="group-hover:underline">{p.title}</span>
+          </Link>
+        ))}
       </div>
     </div>
   );

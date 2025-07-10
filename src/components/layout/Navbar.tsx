@@ -56,17 +56,15 @@ export default function Navbar() {
     await signOut({ callbackUrl: "/" });
   };
 
-const [expandedCategories, setExpandedCategories] = useState<number[]>([]);
+  const [expandedCategories, setExpandedCategories] = useState<number[]>([]);
 
-const toggleCategory = (categoryId: number) => {
-  setExpandedCategories(prev =>
-    prev.includes(categoryId)
-      ? prev.filter(id => id !== categoryId)
-      : [...prev, categoryId]
-  );
-};
-
-
+  const toggleCategory = (categoryId: number) => {
+    setExpandedCategories((prev) =>
+      prev.includes(categoryId)
+        ? prev.filter((id) => id !== categoryId)
+        : [...prev, categoryId]
+    );
+  };
 
   return (
     <header className="bg-white border-b sticky top-0 z-50">
@@ -76,16 +74,18 @@ const toggleCategory = (categoryId: number) => {
           {/* Logo and Desktop Nav */}
           <div className="flex items-center">
             {/* Mobile menu button */}
-            <button
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={() => setMobileOpen(!mobileOpen)}
-              className="md:hidden p-2 rounded-md text-gray-700 hover:text-gray-900 hover:bg-gray-100 focus:outline-none"
+              className="md:hidden"
             >
               {mobileOpen ? <X size={24} /> : <Menu size={24} />}
-            </button>
+            </Button>
 
             {/* Logo */}
             <Link href="/" className="flex-shrink-0">
-              <h1 className="font-[NotoSerifBengali] text-3xl font-bold text-red-600">
+              <h1 className="font-[NotoSerifBengali] text-5xl font-bold text-red-600">
                 খেলা টিভি
               </h1>
             </Link>
@@ -99,7 +99,7 @@ const toggleCategory = (categoryId: number) => {
                       {cat.name}
                       <ChevronDown className="ml-1 h-4 w-4" />
                     </button>
-                   <div className="absolute z-10 left-0 mt-2 w-48 rounded-md shadow-lg bg-gray-50 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
+                    <div className="absolute z-10 left-0 mt-2 w-48 rounded-md shadow-lg bg-gray-50 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
                       <div className="py-1">
                         {cat.subcategories.map((sub) => (
                           <Link
@@ -135,29 +135,29 @@ const toggleCategory = (categoryId: number) => {
               </div>
             </form>
 
-{/* Auth - Desktop */}
-{status === "authenticated" ? (
-  <DropdownMenu>
-    <DropdownMenuTrigger className="hidden md:flex items-center ml-4 space-x-2 p-2 rounded-md hover:bg-gray-100 focus:outline-none">
-      {session.user?.image ? (
-        <Image
-          src={session.user.image}
-          alt="Profile"
-          width={32}
-          height={32}
-          className="w-8 h-8 rounded-full"
-        />
-      ) : (
-        <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
-          <User className="w-4 h-4 text-gray-600" />
-        </div>
-      )}
-      <span className="text-sm font-medium text-gray-700">
-        {session.user?.name || session.user?.email?.split('@')[0]}
-      </span>
-      <ChevronDown className="w-4 h-4 text-gray-500" />
-    </DropdownMenuTrigger>
-    <DropdownMenuContent className="mt-2 w-48" align="end">
+            {/* Auth - Desktop */}
+            {status === "authenticated" ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger className="hidden md:flex items-center ml-4 space-x-2 p-2 rounded-md hover:bg-gray-100 focus:outline-none">
+                  {session.user?.image ? (
+                    <Image
+                      src={session.user.image}
+                      alt="Profile"
+                      width={32}
+                      height={32}
+                      className="w-8 h-8 rounded-full"
+                    />
+                  ) : (
+                    <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
+                      <User className="w-4 h-4 text-gray-600" />
+                    </div>
+                  )}
+                  <span className="text-sm font-medium text-gray-700">
+                    {session.user?.name || session.user?.email?.split("@")[0]}
+                  </span>
+                  <ChevronDown className="w-4 h-4 text-gray-500" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="mt-2 w-48" align="end">
                   <DropdownMenuItem asChild>
                     <Link
                       href="/profile"
@@ -231,40 +231,39 @@ const toggleCategory = (categoryId: number) => {
 
           {/* Mobile Navigation */}
           <nav className="mt-6 px-4">
-  <ul className="space-y-1">
-    {categories.map((cat) => (
-      <li key={cat.id}>
-        <button
-          onClick={() => toggleCategory(cat.id)}
-          className="flex items-center justify-between w-full px-3 py-3 rounded-md text-base font-medium text-gray-900 hover:bg-gray-50"
-        >
-          <span>{cat.name}</span>
-          <ChevronDown
-            className={`h-5 w-5 text-gray-500 transition-transform ${
-              expandedCategories.includes(cat.id) ? 'rotate-180' : ''
-            }`}
-          />
-        </button>
-        {expandedCategories.includes(cat.id) && (
-          <ul className="pl-4 mt-1 space-y-1 bg-gray-50 rounded-md py-1">
-            {cat.subcategories.map((sub) => (
-              <li key={sub.id}>
-                <Link
-                  href={`/${cat.slug}/${sub.slug}`}
-                  className="block px-3 py-2 rounded-md text-base text-gray-600 hover:bg-gray-100"
-                  onClick={() => setMobileOpen(false)}
-                >
-                  {sub.name}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
-      </li>
-    ))}
-  </ul>
-</nav>
-
+            <ul className="space-y-1">
+              {categories.map((cat) => (
+                <li key={cat.id}>
+                  <button
+                    onClick={() => toggleCategory(cat.id)}
+                    className="flex items-center justify-between w-full px-3 py-3 rounded-md text-base font-medium text-gray-900 hover:bg-gray-50"
+                  >
+                    <span>{cat.name}</span>
+                    <ChevronDown
+                      className={`h-5 w-5 text-gray-500 transition-transform ${
+                        expandedCategories.includes(cat.id) ? "rotate-180" : ""
+                      }`}
+                    />
+                  </button>
+                  {expandedCategories.includes(cat.id) && (
+                    <ul className="pl-4 mt-1 space-y-1 bg-gray-50 rounded-md py-1">
+                      {cat.subcategories.map((sub) => (
+                        <li key={sub.id}>
+                          <Link
+                            href={`/${cat.slug}/${sub.slug}`}
+                            className="block px-3 py-2 rounded-md text-base text-gray-600 hover:bg-gray-100"
+                            onClick={() => setMobileOpen(false)}
+                          >
+                            {sub.name}
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </nav>
 
           {/* Mobile Auth */}
           <div className="mt-6 px-4">
