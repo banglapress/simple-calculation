@@ -176,6 +176,28 @@ export default function Navbar() {
                       </Link>
                     </DropdownMenuItem>
                   )}
+
+                    {session.user?.role === "REPORTER" && (
+                    <DropdownMenuItem asChild>
+                      <Link
+                        href="/dashboard/reporter"
+                        className="block px-4 py-2 text-sm text-gray-700 w-full text-left"
+                      >
+                        Dashboard
+                      </Link>
+                    </DropdownMenuItem>
+                  )}
+
+                   {session.user?.role === "EDITOR" && (
+                    <DropdownMenuItem asChild>
+                      <Link
+                        href="/dashboard/editor"
+                        className="block px-4 py-2 text-sm text-gray-700 w-full text-left"
+                      >
+                        Editors Panel
+                      </Link>
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuItem
                     onClick={handleLogout}
                     className="text-red-600 cursor-pointer"
