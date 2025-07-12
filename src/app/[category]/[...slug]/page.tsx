@@ -1,4 +1,4 @@
-// src/app/[category]/[[subcategory]]/[postId]/page.tsx
+// src/app/[category]/[...slug]/page.tsx
 
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
@@ -9,7 +9,7 @@ import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import { Prisma } from "@prisma/client";
 
-// 🟡 CONFIG
+// Config
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://www.khelatv.com";
 
 // Types
@@ -26,22 +26,22 @@ type Post = Omit<PostWithRelations, "createdAt" | "updatedAt"> & {
   updatedAt: string;
 };
 
-// Helpers
 const transformPost = (post: PostWithRelations): Post => ({
   ...post,
   createdAt: post.createdAt.toISOString(),
   updatedAt: post.updatedAt.toISOString(),
 });
 
-// ✅ DYNAMIC METADATA FOR SEO
-
+// ✅ Dynamic Metadata for SEO
 export async function generateMetadata({
   params,
 }: {
-  params: { category: string; subcategory?: string; postId: string };
+  params: { category: string; slug: string[] };
 }): Promise<Metadata> {
+  const postId = params.slug[params.slug.length - 1];
+
   const post = await prisma.post.findUnique({
-    where: { id: params.postId },
+    where: { id: postId },
     include: {
       author: true,
       categories: true,
@@ -53,7 +53,9 @@ export async function generateMetadata({
 
   const categorySlug = post.categories?.[0]?.slug || "category";
   const subcategorySlug = post.subcategories?.[0]?.slug;
-  const fullUrl = `${SITE_URL}/${categorySlug}${subcategorySlug ? `/${subcategorySlug}` : ""}/${post.id}`;
+  const fullUrl = `${SITE_URL}/${categorySlug}${
+    subcategorySlug ? `/${subcategorySlug}` : ""
+  }/${post.id}`;
 
   const plainText = post.content.replace(/<[^>]+>/g, "").replace(/\s+/g, " ");
   const shortDescription = plainText.slice(0, 160).trim();
@@ -87,17 +89,18 @@ export async function generateMetadata({
   };
 }
 
-// ✅ MAIN PAGE
+// ✅ Main Page Component
 export default async function PostPage({
   params,
 }: {
   params: {
-    postId: string;
-    category?: string;
-    subcategory?: string;
+    category: string;
+    slug: string[];
   };
 }) {
-  const { postId } = params;
+  const postId = params.slug[params.slug.length - 1];
+
+  if (!postId) return notFound();
 
   const post = await prisma.post.findUnique({
     where: { id: postId },
@@ -114,10 +117,9 @@ export default async function PostPage({
   const categorySlug = post.categories[0]?.slug || "category";
   const subcategorySlug = post.subcategories[0]?.slug || null;
 
-  const urlPath = `${categorySlug}${
+  const fullUrl = `${SITE_URL}/${categorySlug}${
     subcategorySlug ? `/${subcategorySlug}` : ""
-  }/${postId}`;
-  const fullUrl = `${SITE_URL}/${urlPath}`;
+  }/${post.id}`;
 
   const fetchPosts = async (where: Prisma.PostWhereInput) => {
     const posts = await prisma.post.findMany({
