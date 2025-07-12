@@ -1,13 +1,18 @@
-// src/app/[category]/[subcategory]/[postId]/page.tsx
+// src/app/[category]/[[subcategory]]/[postId]/page.tsx
+
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
+import { Metadata } from "next";
 import Link from "next/link";
+import Image from "next/image";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
-import Image from "next/image";
 import { Prisma } from "@prisma/client";
 
-// Use Prisma's generated type for the post with relations
+// 🟡 CONFIG
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://www.khelatv.com";
+
+// Types
 type PostWithRelations = Prisma.PostGetPayload<{
   include: {
     author: true;
@@ -16,26 +21,81 @@ type PostWithRelations = Prisma.PostGetPayload<{
   };
 }>;
 
-// Our transformed post type with string dates
-type Post = Omit<PostWithRelations, 'createdAt' | 'updatedAt'> & {
+type Post = Omit<PostWithRelations, "createdAt" | "updatedAt"> & {
   createdAt: string;
   updatedAt: string;
 };
 
+// Helpers
 const transformPost = (post: PostWithRelations): Post => ({
   ...post,
   createdAt: post.createdAt.toISOString(),
   updatedAt: post.updatedAt.toISOString(),
 });
 
-export default async function PostPage({ 
-  params 
-}: { 
-  params: { 
+// ✅ DYNAMIC METADATA FOR SEO
+
+export async function generateMetadata({
+  params,
+}: {
+  params: { category: string; subcategory?: string; postId: string };
+}): Promise<Metadata> {
+  const post = await prisma.post.findUnique({
+    where: { id: params.postId },
+    include: {
+      author: true,
+      categories: true,
+      subcategories: true,
+    },
+  });
+
+  if (!post || post.status !== "PUBLISHED") return {};
+
+  const categorySlug = post.categories?.[0]?.slug || "category";
+  const subcategorySlug = post.subcategories?.[0]?.slug;
+  const fullUrl = `${SITE_URL}/${categorySlug}${subcategorySlug ? `/${subcategorySlug}` : ""}/${post.id}`;
+
+  const plainText = post.content.replace(/<[^>]+>/g, "").replace(/\s+/g, " ");
+  const shortDescription = plainText.slice(0, 160).trim();
+
+  return {
+    title: post.title,
+    description: shortDescription || post.title,
+    openGraph: {
+      title: post.title,
+      description: shortDescription || post.title,
+      type: "article",
+      url: fullUrl,
+      images: [
+        {
+          url: post.featureImage,
+          width: 1200,
+          height: 630,
+          alt: post.title,
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: post.title,
+      description: shortDescription || post.title,
+      images: [post.featureImage],
+    },
+    alternates: {
+      canonical: fullUrl,
+    },
+  };
+}
+
+// ✅ MAIN PAGE
+export default async function PostPage({
+  params,
+}: {
+  params: {
     postId: string;
-    category?: string; 
+    category?: string;
     subcategory?: string;
-  } 
+  };
 }) {
   const { postId } = params;
 
@@ -51,6 +111,13 @@ export default async function PostPage({
   if (!post || post.status !== "PUBLISHED") return notFound();
 
   const transformedPost = transformPost(post);
+  const categorySlug = post.categories[0]?.slug || "category";
+  const subcategorySlug = post.subcategories[0]?.slug || null;
+
+  const urlPath = `${categorySlug}${
+    subcategorySlug ? `/${subcategorySlug}` : ""
+  }/${postId}`;
+  const fullUrl = `${SITE_URL}/${urlPath}`;
 
   const fetchPosts = async (where: Prisma.PostWhereInput) => {
     const posts = await prisma.post.findMany({
@@ -70,14 +137,8 @@ export default async function PostPage({
       categories: { some: { id: post.categories[0]?.id || 0 } },
       id: { not: post.id },
     }),
-    fetchPosts({
-      status: "PUBLISHED", 
-      placement: "EDITORS_PICK",
-    }),
-    fetchPosts({
-      status: "PUBLISHED",
-      placement: "TRENDING",
-    })
+    fetchPosts({ status: "PUBLISHED", placement: "EDITORS_PICK" }),
+    fetchPosts({ status: "PUBLISHED", placement: "TRENDING" }),
   ]);
 
   return (
@@ -86,19 +147,21 @@ export default async function PostPage({
 
       <main className="max-w-7xl mx-auto grid md:grid-cols-12 gap-6 p-4">
         <div className="md:col-span-8 space-y-4">
-          <h1 className="text-3xl text-slate-700 font-[Cholontika]">{transformedPost.title}</h1>
+          <h1 className="text-3xl text-slate-700 font-[Cholontika]">
+            {transformedPost.title}
+          </h1>
           <div className="text-sm text-gray-500">
             ✍️ {transformedPost.author?.name} •{" "}
             {new Date(transformedPost.createdAt).toLocaleString("bn-BD")}
           </div>
 
           {transformedPost.featureImage && (
-            <Image 
-              src={transformedPost.featureImage} 
-              className="rounded w-full" 
-              width={1200} 
-              height={600} 
-              alt={transformedPost.title} 
+            <Image
+              src={transformedPost.featureImage}
+              className="rounded w-full"
+              width={1200}
+              height={600}
+              alt={transformedPost.title}
               priority
             />
           )}
@@ -112,7 +175,7 @@ export default async function PostPage({
             <p className="text-sm text-gray-600 mb-1">🔗 শেয়ার করুন:</p>
             <a
               href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(
-                process.env.NEXT_PUBLIC_SITE_URL + `/${params.category || 'category'}/${params.subcategory || 'subcategory'}/${postId}`
+                fullUrl
               )}`}
               target="_blank"
               rel="noopener noreferrer"
@@ -122,7 +185,7 @@ export default async function PostPage({
             </a>
             <a
               href={`https://wa.me/?text=${encodeURIComponent(
-                transformedPost.title + " " + process.env.NEXT_PUBLIC_SITE_URL + `/${params.category || 'category'}/${params.subcategory || 'subcategory'}/${postId}`
+                transformedPost.title + " " + fullUrl
               )}`}
               target="_blank"
               rel="noopener noreferrer"
@@ -132,7 +195,9 @@ export default async function PostPage({
             </a>
           </div>
 
-          <div className="text-sm mt-4 text-gray-400">🏷️ ট্যাগ: {transformedPost.tags}</div>
+          <div className="text-sm mt-4 text-gray-400">
+            🏷️ ট্যাগ: {transformedPost.tags}
+          </div>
         </div>
 
         <aside className="md:col-span-4 space-y-6">
@@ -147,28 +212,33 @@ export default async function PostPage({
   );
 }
 
+// Sidebar Section
 function Section({ title, posts }: { title: string; posts: Post[] }) {
   return (
     <div>
-      <h3 className="text-lg font-bold font-[NotoSerifBengali] mb-2 border-b pb-1">{title}</h3>
+      <h3 className="text-lg font-bold font-[NotoSerifBengali] mb-2 border-b pb-1">
+        {title}
+      </h3>
       <div className="space-y-2">
-        {posts.map((p) => (
-          <Link
-            key={p.id}
-            href={`/${p.categories?.[0]?.slug || "category"}/${p.subcategories?.[0]?.slug || "subcategory"}/${p.id}`}
-            className="flex gap-2 text-sm group"
-          >
-            <Image
-              src={p.featureImage}
-              className="w-16 h-12 object-cover rounded"
-              alt={p.title}
-              height={75}
-              width={300}
-              priority
-            />
-            <span className="group-hover:underline">{p.title}</span>
-          </Link>
-        ))}
+        {posts.map((p) => {
+          const cat = p.categories?.[0]?.slug || "category";
+          const sub = p.subcategories?.[0]?.slug;
+          const href = `/${cat}${sub ? `/${sub}` : ""}/${p.id}`;
+
+          return (
+            <Link key={p.id} href={href} className="flex gap-2 text-sm group">
+              <Image
+                src={p.featureImage}
+                className="w-16 h-12 object-cover rounded"
+                alt={p.title}
+                height={75}
+                width={300}
+                priority
+              />
+              <span className="group-hover:underline">{p.title}</span>
+            </Link>
+          );
+        })}
       </div>
     </div>
   );

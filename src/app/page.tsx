@@ -25,26 +25,15 @@ interface Post {
   featureImage: string;
   status: "DRAFT" | "PENDING" | "PUBLISHED";
   placement: "NONE" | "LEAD" | "SECOND_LEAD" | "EDITORS_PICK" | "TRENDING";
-  updatedAt: Date; // <-- changed from string to Date
-  createdAt: Date; // <-- add this too if needed
+  updatedAt: Date;
+  createdAt: Date;
   categories: Category[];
   subcategories: Subcategory[];
 }
 
-
 export default async function HomePage() {
-  const [
-    leadPost,
-    secondLeadPost,
-    footballPosts,
-    footballSidebar,
-    cricketPosts,
-    cricketSidebar,
-    athleticsPosts,
-    otherSportsPosts,
-    sportsTechPosts,
-    sportsCulturePosts,
-  ] = await Promise.all([
+  // STEP 1: Fetch lead and second lead first
+  const [leadPost, secondLeadPost] = await Promise.all([
     prisma.post.findFirst({
       where: { status: "PUBLISHED", placement: "LEAD" },
       orderBy: { updatedAt: "desc" },
@@ -55,10 +44,27 @@ export default async function HomePage() {
       orderBy: { updatedAt: "desc" },
       include: { categories: true, subcategories: true },
     }),
+  ]);
+
+  // STEP 2: Fetch all other content
+  const [
+    footballPosts,
+    footballSidebar,
+    cricketPosts,
+    cricketSidebar,
+    athleticsPosts,
+    otherSportsPosts,
+    sportsTechPosts,
+    sportsCulturePosts,
+    hockeyPosts,
+  ] = await Promise.all([
     prisma.post.findMany({
       where: {
         status: "PUBLISHED",
         categories: { some: { slug: "football" } },
+        id: {
+          notIn: [leadPost?.id || "", secondLeadPost?.id || ""],
+        },
       },
       orderBy: { updatedAt: "desc" },
       take: 4,
@@ -116,6 +122,15 @@ export default async function HomePage() {
       take: 4,
       include: { categories: true, subcategories: true },
     }),
+    prisma.post.findMany({
+      where: {
+        status: "PUBLISHED",
+        categories: { some: { slug: "hockey" } },
+      },
+      orderBy: { updatedAt: "desc" },
+      take: 4,
+      include: { categories: true, subcategories: true },
+    }),
   ]);
 
   return (
@@ -132,25 +147,20 @@ export default async function HomePage() {
               <div className="bg-white rounded-2xl p-4 shadow-md hover:shadow-xl transition-shadow duration-300">
                 <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-center">
                   <div className="md:col-span-3">
-                    <Link
-                      href={`/${leadPost.categories?.[0]?.slug}/${leadPost.subcategories?.[0]?.slug}/${leadPost.id}`}
-                    >
+                    <Link href={`/${leadPost.categories[0]?.slug}/${leadPost.subcategories[0]?.slug}/${leadPost.id}`}>
                       <h2 className="text-3xl font-[Cholontika] text-gray-900 hover:text-blue-900 transition-colors duration-200 mb-2">
                         {leadPost.title}
                       </h2>
                       <p className="text-base font-[NotoSerifBengali] text-gray-700 line-clamp-3">
-                        {leadPost.content.replace(/<[^>]+>/g, "").slice(0, 150)}
-                        ...
+                        {leadPost.content.replace(/<[^>]+>/g, "").slice(0, 150)}...
                       </p>
                     </Link>
                   </div>
                   <div className="md:col-span-2">
-                    <Link
-                      href={`/${leadPost.categories?.[0]?.slug}/${leadPost.subcategories?.[0]?.slug}/${leadPost.id}`}
-                    >
+                    <Link href={`/${leadPost.categories[0]?.slug}/${leadPost.subcategories[0]?.slug}/${leadPost.id}`}>
                       <Image
                         src={leadPost.featureImage}
-                        alt={leadPost.title}
+                        alt={leadPost.title || "Post image"}
                         width={600}
                         height={400}
                         className="rounded-xl w-full h-[250px] object-cover hover:scale-105 transition-transform duration-300"
@@ -165,12 +175,10 @@ export default async function HomePage() {
           {secondLeadPost && (
             <div className="md:col-span-5">
               <div className="bg-white rounded-2xl p-4 shadow-md hover:shadow-xl transition-shadow duration-300">
-                <Link
-                  href={`/${secondLeadPost.categories?.[0]?.slug}/${secondLeadPost.subcategories?.[0]?.slug}/${secondLeadPost.id}`}
-                >
+                <Link href={`/${secondLeadPost.categories[0]?.slug}/${secondLeadPost.subcategories[0]?.slug}/${secondLeadPost.id}`}>
                   <Image
                     src={secondLeadPost.featureImage}
-                    alt={secondLeadPost.title}
+                    alt={secondLeadPost.title || "Post image"}
                     width={600}
                     height={400}
                     className="rounded-xl w-full h-[250px] object-cover mb-3 hover:scale-105 transition-transform duration-300"
@@ -179,10 +187,7 @@ export default async function HomePage() {
                     {secondLeadPost.title}
                   </h2>
                   <p className="text-base font-[NotoSerifBengali] text-gray-700">
-                    {secondLeadPost.content
-                      .replace(/<[^>]+>/g, "")
-                      .slice(0, 150)}
-                    ...
+                    {secondLeadPost.content.replace(/<[^>]+>/g, "").slice(0, 150)}...
                   </p>
                 </Link>
               </div>
@@ -191,34 +196,13 @@ export default async function HomePage() {
         </div>
 
         {/* CATEGORY SECTIONS */}
-        {renderCategorySection(
-          "football",
-          "⚽ ফুটবল",
-          footballPosts,
-          footballSidebar
-        )}
-        {renderCategorySection(
-          "cricket",
-          "🏏 ক্রিকেট",
-          cricketPosts,
-          cricketSidebar
-        )}
+        {renderCategorySection("football", "⚽ ফুটবল", footballPosts, footballSidebar)}
+        {renderCategorySection("cricket", "🏏 ক্রিকেট", cricketPosts, cricketSidebar)}
+        {renderCategorySection("hockey", "🏑 হকি", hockeyPosts)}
         {renderCategorySection("athletics", "🏃 অ্যাথলেটিক্স", athleticsPosts)}
-        {renderCategorySection(
-          "othersports",
-          "🎾 অন্যান্য খেলা",
-          otherSportsPosts
-        )}
-        {renderCategorySection(
-          "sports-tech",
-          "💼 খেলার প্রযুক্তি ও বাণিজ্য",
-          sportsTechPosts
-        )}
-        {renderCategorySection(
-          "sports-culture",
-          "🎭 খেলার জীবন ও সংস্কৃতি",
-          sportsCulturePosts
-        )}
+        {renderCategorySection("othersports", "🎾 অন্যান্য খেলা", otherSportsPosts)}
+        {renderCategorySection("sports-tech", "💼 খেলার প্রযুক্তি ও বাণিজ্য", sportsTechPosts)}
+        {renderCategorySection("sports-culture", "🎭 খেলার জীবন ও সংস্কৃতি", sportsCulturePosts)}
       </main>
 
       <Footer />
@@ -234,10 +218,9 @@ function renderCategorySection(
 ) {
   return (
     <div className="grid md:grid-cols-12 gap-6 bg-white p-4 rounded-xl shadow">
-      {/* Category Left Block */}
       <div className="md:col-span-9">
         <Link href={`/${categorySlug}`}>
-          <h2 className="text-3xl font text-red-600 mb-4 font-[Cholontika]">
+          <h2 className="text-3xl font-[Cholontika] text-red-600 mb-4">
             {title}
           </h2>
         </Link>
@@ -245,18 +228,17 @@ function renderCategorySection(
           {posts.map((post) => (
             <Link
               key={post.id}
-              href={`/${post.categories?.[0]?.slug}/${post.subcategories?.[0]?.slug}/${post.id}`}
+              href={`/${post.categories[0]?.slug}/${post.subcategories[0]?.slug}/${post.id}`}
               className="block border rounded-xl p-3 hover:shadow-md transition group"
             >
               <Image
                 src={post.featureImage}
-                alt={post.title}
+                alt={post.title || "Post image"}
                 width={500}
                 height={300}
                 className="w-full h-[180px] object-cover rounded mb-2 transition-transform duration-300 group-hover:scale-105"
               />
-
-              <h5 className="text-xl font-normal font-[Cholontika] mb-2 overflow-hidden text-ellipsis text-gray-700 group-hover:text-gray-900 transition-colors duration-200">
+              <h5 className="text-xl font-normal font-[Cholontika] mb-2 text-gray-700 group-hover:text-gray-900 transition-colors duration-200">
                 {post.title}
               </h5>
               <p className="text-sm text-gray-700 font-[NotoSerifBengali]">
@@ -267,26 +249,22 @@ function renderCategorySection(
         </div>
       </div>
 
-      {/* Optional Right Sidebar Block */}
       {sidebarPost && (
         <div className="md:col-span-3">
           <h3 className="text-md font-semibold text-gray-600 mb-2">
-            {sidebarPost.placement === "TRENDING"
-              ? "🔥 ট্রেন্ডিং"
-              : "⭐ সম্পাদকের পছন্দ"}
+            {sidebarPost.placement === "TRENDING" ? "🔥 ট্রেন্ডিং" : "⭐ সম্পাদকের পছন্দ"}
           </h3>
           <Link
-            href={`/${sidebarPost.categories?.[0]?.slug}/${sidebarPost.subcategories?.[0]?.slug}/${sidebarPost.id}`}
+            href={`/${sidebarPost.categories[0]?.slug}/${sidebarPost.subcategories[0]?.slug}/${sidebarPost.id}`}
             className="block rounded-xl border p-2 hover:shadow-md transition group"
           >
             <Image
-  src={sidebarPost.featureImage}
-  alt={sidebarPost.title}
-  width={300}
-  height={200}
-  className="w-full h-[150px] object-cover rounded mb-2 transition-transform duration-300 group-hover:scale-105"
-/>
-
+              src={sidebarPost.featureImage}
+              alt={sidebarPost.title || "Post image"}
+              width={300}
+              height={200}
+              className="w-full h-[150px] object-cover rounded mb-2 transition-transform duration-300 group-hover:scale-105"
+            />
             <h4 className="font-[Cholontika] text-base font-semibold text-gray-700 group-hover:text-gray-900 transition-colors duration-200">
               {sidebarPost.title}
             </h4>
