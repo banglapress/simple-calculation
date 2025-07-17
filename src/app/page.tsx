@@ -45,6 +45,8 @@ export default async function HomePage() {
     }),
   ]);
 
+  const excludeIds = [leadPost?.id, secondLeadPost?.id].filter(Boolean) as string[];
+
   const [
     footballPosts,
     footballSidebar,
@@ -60,7 +62,7 @@ export default async function HomePage() {
       where: {
         status: "PUBLISHED",
         categories: { some: { slug: "football" } },
-        id: { notIn: [leadPost?.id || "", secondLeadPost?.id || ""] },
+        id: { notIn: excludeIds },
       },
       orderBy: { updatedAt: "desc" },
       take: 4,
@@ -72,7 +74,11 @@ export default async function HomePage() {
       include: { categories: true, subcategories: true },
     }),
     prisma.post.findMany({
-      where: { status: "PUBLISHED", categories: { some: { slug: "cricket" } } },
+      where: {
+        status: "PUBLISHED",
+        categories: { some: { slug: "cricket" } },
+        id: { notIn: excludeIds },
+      },
       orderBy: { updatedAt: "desc" },
       take: 4,
       include: { categories: true, subcategories: true },
@@ -83,31 +89,51 @@ export default async function HomePage() {
       include: { categories: true, subcategories: true },
     }),
     prisma.post.findMany({
-      where: { status: "PUBLISHED", categories: { some: { slug: "athletics" } } },
+      where: {
+        status: "PUBLISHED",
+        categories: { some: { slug: "athletics" } },
+        id: { notIn: excludeIds },
+      },
       orderBy: { updatedAt: "desc" },
       take: 4,
       include: { categories: true, subcategories: true },
     }),
     prisma.post.findMany({
-      where: { status: "PUBLISHED", categories: { some: { slug: "othersports" } } },
+      where: {
+        status: "PUBLISHED",
+        categories: { some: { slug: "othersports" } },
+        id: { notIn: excludeIds },
+      },
       orderBy: { updatedAt: "desc" },
       take: 4,
       include: { categories: true, subcategories: true },
     }),
     prisma.post.findMany({
-      where: { status: "PUBLISHED", categories: { some: { slug: "sports-tech" } } },
+      where: {
+        status: "PUBLISHED",
+        categories: { some: { slug: "sports-tech" } },
+        id: { notIn: excludeIds },
+      },
       orderBy: { updatedAt: "desc" },
       take: 4,
       include: { categories: true, subcategories: true },
     }),
     prisma.post.findMany({
-      where: { status: "PUBLISHED", categories: { some: { slug: "sports-culture" } } },
+      where: {
+        status: "PUBLISHED",
+        categories: { some: { slug: "sports-culture" } },
+        id: { notIn: excludeIds },
+      },
       orderBy: { updatedAt: "desc" },
       take: 4,
       include: { categories: true, subcategories: true },
     }),
     prisma.post.findMany({
-      where: { status: "PUBLISHED", categories: { some: { slug: "hockey" } } },
+      where: {
+        status: "PUBLISHED",
+        categories: { some: { slug: "hockey" } },
+        id: { notIn: excludeIds },
+      },
       orderBy: { updatedAt: "desc" },
       take: 4,
       include: { categories: true, subcategories: true },
