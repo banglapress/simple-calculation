@@ -1,10 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import Navbar from "@/components/layout/Navbar";
-import Footer from "@/components/layout/Footer";
 import BreakingNews from "@/components/layout/BreakingNews";
 import LiveScoreBar from "@/components/home/LiveScoreBar";
 import Link from "next/link";
 import Image from "next/image";
+import Footer from "@/components/layout/Footer";
 
 interface Category {
   id: number;
@@ -45,7 +45,9 @@ export default async function HomePage() {
     }),
   ]);
 
-  const excludeIds = [leadPost?.id, secondLeadPost?.id].filter(Boolean) as string[];
+  const excludeIds = [leadPost?.id, secondLeadPost?.id].filter(
+    Boolean
+  ) as string[];
 
   const [
     footballPosts,
@@ -148,22 +150,28 @@ export default async function HomePage() {
 
       <main className="max-w-7xl mx-auto p-4 space-y-10">
         <div className="grid md:grid-cols-12 gap-6">
-          {leadPost && (
-            <div className="md:col-span-7">
+          {/* Lead Post + Ad  */}
+          <div className="md:col-span-7 space-y-6">
+            {leadPost && (
               <div className="bg-white rounded-2xl p-4 shadow-md hover:shadow-xl transition-shadow duration-300">
                 <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-center">
                   <div className="md:col-span-3">
                     {(() => {
                       const cat = leadPost.categories[0]?.slug || "category";
                       const sub = leadPost.subcategories[0]?.slug;
-                      const href = sub ? `/${cat}/${sub}/${leadPost.id}` : `/${cat}/${leadPost.id}`;
+                      const href = sub
+                        ? `/${cat}/${sub}/${leadPost.id}`
+                        : `/${cat}/${leadPost.id}`;
                       return (
                         <Link href={href}>
                           <h2 className="text-3xl font-[Cholontika] text-gray-900 hover:text-blue-900 mb-2">
                             {leadPost.title}
                           </h2>
                           <p className="text-base font-[NotoSerifBengali] text-gray-700 line-clamp-3">
-                            {leadPost.content.replace(/<[^>]+>/g, "").slice(0, 150)}...
+                            {leadPost.content
+                              .replace(/<[^>]+>/g, "")
+                              .slice(0, 150)}
+                            ...
                           </p>
                         </Link>
                       );
@@ -173,7 +181,9 @@ export default async function HomePage() {
                     {(() => {
                       const cat = leadPost.categories[0]?.slug || "category";
                       const sub = leadPost.subcategories[0]?.slug;
-                      const href = sub ? `/${cat}/${sub}/${leadPost.id}` : `/${cat}/${leadPost.id}`;
+                      const href = sub
+                        ? `/${cat}/${sub}/${leadPost.id}`
+                        : `/${cat}/${leadPost.id}`;
                       return (
                         <Link href={href}>
                           <Image
@@ -189,44 +199,80 @@ export default async function HomePage() {
                   </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {secondLeadPost && (() => {
-            const cat = secondLeadPost.categories[0]?.slug || "category";
-            const sub = secondLeadPost.subcategories[0]?.slug;
-            const href = sub ? `/${cat}/${sub}/${secondLeadPost.id}` : `/${cat}/${secondLeadPost.id}`;
-            return (
-              <div className="md:col-span-5">
-                <div className="bg-white rounded-2xl p-4 shadow-md hover:shadow-xl transition-shadow">
-                  <Link href={href}>
-                    <Image
-                      src={secondLeadPost.featureImage}
-                      alt={secondLeadPost.title || "Post image"}
-                      width={600}
-                      height={400}
-                      className="rounded-xl w-full h-[250px] object-cover mb-3 hover:scale-105 transition-transform"
-                    />
-                    <h2 className="text-2xl font-[Cholontika] text-gray-900 hover:text-blue-800 mb-2">
-                      {secondLeadPost.title}
-                    </h2>
-                    <p className="text-base font-[NotoSerifBengali] text-gray-700">
-                      {secondLeadPost.content.replace(/<[^>]+>/g, "").slice(0, 150)}...
-                    </p>
-                  </Link>
-                </div>
+            {/* Ad Block */}
+            <div className="md:col-span-7 order-2 w-full">
+              <div className="w-full h-[75px] bg-gray-200 rounded-xl flex items-center justify-center text-sm text-gray-600">
+                {/* Replace this with Google AdSense code below */}
+                Advertisement (Below Lead Post - 728x90 or responsive)
               </div>
-            );
-          })()}
+            </div>
+          </div>
+  {/* Right column: Second Lead Post */}
+          {secondLeadPost &&
+            (() => {
+              const cat = secondLeadPost.categories[0]?.slug || "category";
+              const sub = secondLeadPost.subcategories[0]?.slug;
+              const href = sub
+                ? `/${cat}/${sub}/${secondLeadPost.id}`
+                : `/${cat}/${secondLeadPost.id}`;
+              return (
+                <div className="md:col-span-5 order-3">
+                  <div className="bg-white rounded-2xl p-4 shadow-md hover:shadow-xl transition-shadow">
+                    <Link href={href}>
+                      <Image
+                        src={secondLeadPost.featureImage}
+                        alt={secondLeadPost.title || "Post image"}
+                        width={600}
+                        height={400}
+                        className="rounded-xl w-full h-[250px] object-cover mb-3 hover:scale-105 transition-transform"
+                      />
+                      <h2 className="text-2xl font-[Cholontika] text-gray-900 hover:text-blue-800 mb-2">
+                        {secondLeadPost.title}
+                      </h2>
+                      <p className="text-base font-[NotoSerifBengali] text-gray-700">
+                        {secondLeadPost.content
+                          .replace(/<[^>]+>/g, "")
+                          .slice(0, 150)}
+                        ...
+                      </p>
+                    </Link>
+                  </div>
+                </div>
+              );
+            })()}
         </div>
 
-        {renderCategorySection("football", "⚽ ফুটবল", footballPosts, footballSidebar)}
-        {renderCategorySection("cricket", "🏏 ক্রিকেট", cricketPosts, cricketSidebar)}
+        {renderCategorySection(
+          "football",
+          "⚽ ফুটবল",
+          footballPosts,
+          footballSidebar
+        )}
+        {renderCategorySection(
+          "cricket",
+          "🏏 ক্রিকেট",
+          cricketPosts,
+          cricketSidebar
+        )}
         {renderCategorySection("hockey", "🏑 হকি", hockeyPosts)}
         {renderCategorySection("athletics", "🏃 অ্যাথলেটিক্স", athleticsPosts)}
-        {renderCategorySection("othersports", "🎾 অন্যান্য খেলা", otherSportsPosts)}
-        {renderCategorySection("sports-tech", "💼 খেলার প্রযুক্তি ও বাণিজ্য", sportsTechPosts)}
-        {renderCategorySection("sports-culture", "🎭 খেলার জীবন ও সংস্কৃতি", sportsCulturePosts)}
+        {renderCategorySection(
+          "othersports",
+          "🎾 অন্যান্য খেলা",
+          otherSportsPosts
+        )}
+        {renderCategorySection(
+          "sports-tech",
+          "💼 খেলার প্রযুক্তি ও বাণিজ্য",
+          sportsTechPosts
+        )}
+        {renderCategorySection(
+          "sports-culture",
+          "🎭 খেলার জীবন ও সংস্কৃতি",
+          sportsCulturePosts
+        )}
       </main>
 
       <Footer />
@@ -252,9 +298,15 @@ function renderCategorySection(
           {posts.map((post) => {
             const cat = post.categories[0]?.slug || "category";
             const sub = post.subcategories[0]?.slug;
-            const href = sub ? `/${cat}/${sub}/${post.id}` : `/${cat}/${post.id}`;
+            const href = sub
+              ? `/${cat}/${sub}/${post.id}`
+              : `/${cat}/${post.id}`;
             return (
-              <Link key={post.id} href={href} className="block border rounded-xl p-3 hover:shadow-md">
+              <Link
+                key={post.id}
+                href={href}
+                className="block border rounded-xl p-3 hover:shadow-md"
+              >
                 <Image
                   src={post.featureImage}
                   alt={post.title || "Post image"}
@@ -274,30 +326,38 @@ function renderCategorySection(
         </div>
       </div>
 
-      {sidebarPost && (() => {
-        const cat = sidebarPost.categories[0]?.slug || "category";
-        const sub = sidebarPost.subcategories[0]?.slug;
-        const href = sub ? `/${cat}/${sub}/${sidebarPost.id}` : `/${cat}/${sidebarPost.id}`;
-        return (
-          <div className="md:col-span-3">
-            <h3 className="text-md font-semibold text-gray-600 mb-2">
-              {sidebarPost.placement === "TRENDING" ? "🔥 ট্রেন্ডিং" : "⭐ সম্পাদকের পছন্দ"}
-            </h3>
-            <Link href={href} className="block rounded-xl border p-2 hover:shadow-md">
-              <Image
-                src={sidebarPost.featureImage}
-                alt={sidebarPost.title || "Post image"}
-                width={300}
-                height={200}
-                className="w-full h-[150px] object-cover rounded mb-2 hover:scale-105 transition-transform"
-              />
-              <h4 className="font-[Cholontika] text-base font-semibold text-gray-700">
-                {sidebarPost.title}
-              </h4>
-            </Link>
-          </div>
-        );
-      })()}
+      {sidebarPost &&
+        (() => {
+          const cat = sidebarPost.categories[0]?.slug || "category";
+          const sub = sidebarPost.subcategories[0]?.slug;
+          const href = sub
+            ? `/${cat}/${sub}/${sidebarPost.id}`
+            : `/${cat}/${sidebarPost.id}`;
+          return (
+            <div className="md:col-span-3">
+              <h3 className="text-md font-semibold text-gray-600 mb-2">
+                {sidebarPost.placement === "TRENDING"
+                  ? "🔥 ট্রেন্ডিং"
+                  : "⭐ সম্পাদকের পছন্দ"}
+              </h3>
+              <Link
+                href={href}
+                className="block rounded-xl border p-2 hover:shadow-md"
+              >
+                <Image
+                  src={sidebarPost.featureImage}
+                  alt={sidebarPost.title || "Post image"}
+                  width={300}
+                  height={200}
+                  className="w-full h-[150px] object-cover rounded mb-2 hover:scale-105 transition-transform"
+                />
+                <h4 className="font-[Cholontika] text-base font-semibold text-gray-700">
+                  {sidebarPost.title}
+                </h4>
+              </Link>
+            </div>
+          );
+        })()}
     </div>
   );
 }
