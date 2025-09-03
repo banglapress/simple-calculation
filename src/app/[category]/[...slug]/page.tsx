@@ -178,10 +178,20 @@ export default async function PostPage({ params }: { params: { category: string;
 }
 
 // Sidebar section component
-function Section({ title, posts }: { title: string; posts: any[] }) {
+interface SidebarPost {
+  id: string;
+  title: string;
+  featureImage: string;
+  categories: { slug: string }[];
+  subcategories: { slug: string }[];
+}
+
+function Section({ title, posts }: { title: string; posts: SidebarPost[] }) {
   return (
     <div>
-      <h3 className="text-lg font-bold font-[NotoSerifBengali] mb-2 border-b pb-1">{title}</h3>
+      <h3 className="text-lg font-bold font-[NotoSerifBengali] mb-2 border-b pb-1">
+        {title}
+      </h3>
       <div className="space-y-2">
         {posts.map((p) => {
           const cat = p.categories?.[0]?.slug || "category";
@@ -196,7 +206,6 @@ function Section({ title, posts }: { title: string; posts: any[] }) {
                 alt={p.title}
                 height={75}
                 width={120}
-                // 🚀 no priority in sidebar
               />
               <span className="group-hover:underline">{p.title}</span>
             </Link>
@@ -206,3 +215,4 @@ function Section({ title, posts }: { title: string; posts: any[] }) {
     </div>
   );
 }
+
