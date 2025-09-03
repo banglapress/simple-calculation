@@ -26,7 +26,7 @@ export default function LeadCard({ post }: { post: Post }) {
         priority
       />
       <div className="p-4">
-        <h1 className="text-3xl font-bold font-[Cholontika] text-gray-800 mb-2">
+        <h1 className="text-3xl font-[Cholontika] text-gray-800 mb-2">
           {post.title}
         </h1>
         {post.content && (

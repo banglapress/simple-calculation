@@ -77,7 +77,7 @@ export default async function CategorySection({ slug, title, sidebarPost }: Prop
       {sidebarPost && (
         <div className="md:col-span-3">
           <h3 className="text-md font-semibold text-gray-600 mb-2">
-            {sidebarPost.placement === "TRENDING" ? "🔥 ট্রেন্ডিং" : "⭐ সম্পাদকের পছন্দ"}
+            {sidebarPost.placement === "TRENDING" ? "🔥 ট্রেন্ডিং" : "⭐ এডিটরস পিক"}
           </h3>
           <Link
             href={`/${slug}/${sidebarPost.id}`}
@@ -90,7 +90,7 @@ export default async function CategorySection({ slug, title, sidebarPost }: Prop
               height={200}
               className="w-full h-[150px] object-cover rounded mb-2 hover:scale-105 transition-transform"
             />
-            <h4 className="font-[Cholontika] text-base font-semibold text-gray-700">
+            <h4 className="font-[Cholontika] text-base text-gray-700">
               {sidebarPost.title}
             </h4>
           </Link>

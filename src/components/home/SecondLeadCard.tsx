@@ -28,7 +28,7 @@ export default function SecondLeadCard({ post }: { post: Post }) {
         className="w-full h-[350px] object-cover hover:scale-105 transition-transform"
       />
       <div className="p-3">
-        <h2 className="text-2xl font-semibold font-[Cholontika] text-gray-800 mb-1">
+        <h2 className="text-2xl font-[Cholontika] text-gray-800 mb-1">
           {post.title}
         </h2>
         {post.content && (
