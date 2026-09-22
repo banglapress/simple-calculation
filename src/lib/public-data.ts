@@ -17,7 +17,7 @@ const publicPostCardSelect = {
   id: true,
   title: true,
   featureImage: true,
-  content: true,
+  excerpt: true,
   placement: true,
   categories: { select: { slug: true } },
   subcategories: { select: { slug: true } },
@@ -172,4 +172,43 @@ const getCachedPlacementSidebarPosts = unstable_cache(
 
 export function getPlacementSidebarPosts() {
   return getCachedPlacementSidebarPosts();
+}
+
+
+const getCachedBreakingNews = unstable_cache(
+  async () =>
+    prisma.post.findMany({
+      where: { isBreaking: true, status: "PUBLISHED" },
+      orderBy: { updatedAt: "desc" },
+      take: 10,
+      select: {
+        id: true,
+        title: true,
+        categories: { select: { slug: true } },
+        subcategories: { select: { slug: true } },
+      },
+    }),
+  ["public-breaking-news"],
+  {
+    revalidate: HOME_REVALIDATE_SECONDS,
+  }
+);
+
+export function getBreakingNews() {
+  return getCachedBreakingNews();
+}
+
+const getCachedLiveScore = unstable_cache(
+  async () =>
+    prisma.liveScore.findUnique({
+      where: { id: "default" },
+    }),
+  ["public-live-score"],
+  {
+    revalidate: 15,
+  }
+);
+
+export function getLiveScore() {
+  return getCachedLiveScore();
 }
