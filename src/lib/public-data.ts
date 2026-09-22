@@ -146,31 +146,29 @@ export function getPublicPostById(id: string) {
   return getCachedPublicPost(id);
 }
 
-function getCachedPlacementSidebarPosts() {
-  return unstable_cache(
-    async () =>
-      prisma.post.findMany({
-        where: {
-          status: "PUBLISHED",
-          placement: { in: ["EDITORS_PICK", "TRENDING"] },
-        },
-        orderBy: { updatedAt: "desc" },
-        take: 12,
-        select: {
-          id: true,
-          title: true,
-          featureImage: true,
-          placement: true,
-          categories: { select: { slug: true } },
-          subcategories: { select: { slug: true } },
-        },
-      }),
-    ["public-placement-sidebar-posts"],
-    {
-      revalidate: HOME_REVALIDATE_SECONDS,
-    }
-  );
-}
+const getCachedPlacementSidebarPosts = unstable_cache(
+  async () =>
+    prisma.post.findMany({
+      where: {
+        status: "PUBLISHED",
+        placement: { in: ["EDITORS_PICK", "TRENDING"] },
+      },
+      orderBy: { updatedAt: "desc" },
+      take: 12,
+      select: {
+        id: true,
+        title: true,
+        featureImage: true,
+        placement: true,
+        categories: { select: { slug: true } },
+        subcategories: { select: { slug: true } },
+      },
+    }),
+  ["public-placement-sidebar-posts"],
+  {
+    revalidate: HOME_REVALIDATE_SECONDS,
+  }
+);
 
 export function getPlacementSidebarPosts() {
   return getCachedPlacementSidebarPosts();
