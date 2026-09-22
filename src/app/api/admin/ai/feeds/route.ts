@@ -4,7 +4,13 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { prisma } from "@/lib/prisma";
 import { fetchRSSFeed } from "@/lib/rss";
 
-function allowed(session: any) {
+type AuthSession = {
+  user?: {
+    role?: string | null;
+  };
+} | null;
+
+function allowed(session: AuthSession) {
   return (
     session?.user?.role === "ADMIN" ||
     session?.user?.role === "EDITOR"
@@ -49,9 +55,16 @@ export async function POST(req: NextRequest) {
     });
 
     return NextResponse.json(feed, { status: 201 });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errorCode =
+      typeof error === "object" &&
+      error !== null &&
+      "code" in error
+        ? String((error as { code?: unknown }).code)
+        : null;
+
     const message =
-      error?.code === "P2002"
+      errorCode === "P2002"
         ? "এই RSS URL আগে থেকেই যোগ করা আছে।"
         : error instanceof Error
         ? error.message
@@ -126,7 +139,7 @@ export async function PUT(req: NextRequest) {
       },
       items,
     });
-  } catch (error) {
+  } catch (error: unknown) {
     const message =
       error instanceof Error ? error.message : "RSS fetch failed";
     return NextResponse.json({ message }, { status: 500 });
