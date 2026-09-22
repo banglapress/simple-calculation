@@ -376,7 +376,7 @@ export default function EditorPostForm({ postId }: { postId: string }) {
             <div>
               <p className="font-semibold">🎨 Facebook AI Image</p>
               <p className="text-xs text-gray-500 mt-1">
-                Provider: Cloudflare · FLUX.2 Klein 4B · 16:9
+                Provider: Cloudflare · FLUX.2 Klein 4B · 4:5
               </p>
             </div>
             <button
