@@ -9,6 +9,15 @@ function makeExcerpt(content: string) {
     .slice(0, 180);
 }
 
+function normalizeGallery(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((item) => typeof item === "string")
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .slice(0, 20);
+}
+
 export async function GET(
   req: NextRequest,
   context: { params: { id: string } }
@@ -39,6 +48,7 @@ export async function PUT(
     status,
     placement,
     featureImage,
+    galleryImages,
     isBreaking,
     authorId,
     categoryIds,
@@ -55,10 +65,21 @@ export async function PUT(
       status,
       placement,
       featureImage,
+      galleryImages: JSON.stringify(normalizeGallery(galleryImages)),
       isBreaking,
-      author: { connect: { id: authorId } },
-      categories: { set: categoryIds.map((id: number) => ({ id })) },
-      subcategories: { set: subcategoryIds.map((id: number) => ({ id })) },
+      author: authorId
+        ? { connect: { id: authorId } }
+        : undefined,
+      categories: {
+        set: Array.isArray(categoryIds)
+          ? categoryIds.map((id: number) => ({ id }))
+          : [],
+      },
+      subcategories: {
+        set: Array.isArray(subcategoryIds)
+          ? subcategoryIds.map((id: number) => ({ id }))
+          : [],
+      },
     },
   });
 
