@@ -11,6 +11,18 @@ function makeExcerpt(content: string) {
     .slice(0, 180);
 }
 
+function toIdArray(value: unknown, fallback?: unknown) {
+  const source = Array.isArray(value)
+    ? value
+    : fallback !== undefined && fallback !== null && fallback !== ""
+    ? [fallback]
+    : [];
+
+  return source
+    .map((id) => Number(id))
+    .filter((id) => Number.isInteger(id) && id > 0);
+}
+
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
 
@@ -18,15 +30,48 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }
 
+  const body = await req.json();
+
   const {
     title,
     content,
     featureImage,
-    categoryIds = [],
-    subcategoryIds = [],
+    categoryIds,
+    categoryId,
+    subcategoryIds,
+    subcategoryId,
     tags,
     status,
-  } = await req.json();
+  } = body;
+
+  const normalizedCategoryIds = toIdArray(categoryIds, categoryId);
+  const normalizedSubcategoryIds = toIdArray(
+    subcategoryIds,
+    subcategoryId
+  );
+
+  if (!title?.trim()) {
+    return NextResponse.json({ message: "Title is required" }, { status: 400 });
+  }
+
+  if (normalizedSubcategoryIds.length > 0) {
+    const validSubcategories = await prisma.subcategory.findMany({
+      where: {
+        id: { in: normalizedSubcategoryIds },
+        ...(normalizedCategoryIds.length
+          ? { categoryId: { in: normalizedCategoryIds } }
+          : {}),
+      },
+      select: { id: true },
+    });
+
+    if (validSubcategories.length !== normalizedSubcategoryIds.length) {
+      return NextResponse.json(
+        { message: "Subcategory does not belong to selected category" },
+        { status: 400 }
+      );
+    }
+  }
 
   const user = await prisma.user.findUnique({
     where: { email: session.user.email },
@@ -48,10 +93,10 @@ export async function POST(req: NextRequest) {
         tags,
         author: { connect: { id: user.id } },
         categories: {
-          connect: categoryIds.map((id: number) => ({ id })),
+          connect: normalizedCategoryIds.map((id: number) => ({ id })),
         },
         subcategories: {
-          connect: subcategoryIds.map((id: number) => ({ id })),
+          connect: normalizedSubcategoryIds.map((id: number) => ({ id })),
         },
       },
     });
