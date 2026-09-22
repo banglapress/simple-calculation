@@ -92,7 +92,7 @@ async function findStoryForItem(item: RSSItem) {
     }
   }
 
-  return bestScore >= 0.58 ? best : null;
+  return bestScore >= 0.45 ? best : null;
 }
 
 async function queueItem(feed: {
@@ -170,7 +170,109 @@ async function queueItem(feed: {
   return { storyId: story.id, inserted: true, duplicate: false };
 }
 
+
+async function collectMoreSourcesForStory(storyId: string, titleHint: string) {
+  const story = await prisma.deskStory.findUnique({
+    where: { id: storyId },
+    select: { categoryId: true },
+  });
+
+  const feeds = await prisma.newsFeed.findMany({
+    where: { enabled: true },
+    select: { id: true, name: true, url: true, categoryId: true, includeKeywords: true, excludeKeywords: true },
+    orderBy: { id: "asc" },
+  });
+
+  let attached = 0;
+
+  for (const feed of feeds) {
+    if (story?.categoryId && feed.categoryId && story.categoryId !== feed.categoryId) {
+      continue;
+    }
+
+    try {
+      const rawItems = await fetchRSSFeed(feed.url);
+      const filtered = filterRSSItems(
+        rawItems,
+        feed.includeKeywords,
+        feed.excludeKeywords
+      );
+
+      for (const item of filtered.items.slice(0, 30)) {
+        if (titleSimilarity(titleHint, item.title) < 0.45) continue;
+
+        const existing = await prisma.deskStorySource.findFirst({
+          where: { url: item.link },
+          select: { id: true, storyId: true },
+        });
+
+        if (existing) {
+          continue;
+        }
+
+        const publishedAt = item.publishedAt ? new Date(item.publishedAt) : null;
+
+        await prisma.deskStorySource.create({
+          data: {
+            storyId,
+            feedId: feed.id,
+            url: item.link,
+            canonicalUrl: item.link,
+            title: item.title,
+            excerpt: item.description || null,
+            rawText: item.description || null,
+            imageUrl: item.imageUrl || null,
+            publishedAt:
+              publishedAt && !Number.isNaN(publishedAt.getTime())
+                ? publishedAt
+                : null,
+            origin: "rss",
+          },
+        });
+
+        attached += 1;
+        break;
+      }
+    } catch {
+      // One feed failing must not stop the story pipeline.
+    }
+  }
+
+  const sourceCount = await prisma.deskStorySource.count({
+    where: { storyId },
+  });
+
+  await prisma.deskStory.update({
+    where: { id: storyId },
+    data: {
+      sourceCount,
+      warning:
+        sourceCount < 2
+          ? "একটি source পাওয়া গেছে। AI draft তৈরি হলেও Editor review বাধ্যতামূলক।"
+          : null,
+    },
+  });
+
+  await logJob({
+    storyId,
+    stage: "source_collection",
+    status: "ok",
+    payload: { attached, sourceCount },
+  });
+
+  return { attached, sourceCount };
+}
+
 async function processStory(storyId: string) {
+  const initialStory = await prisma.deskStory.findUnique({
+    where: { id: storyId },
+    select: { id: true, titleHint: true },
+  });
+
+  if (!initialStory) throw new Error("Story not found");
+
+  await collectMoreSourcesForStory(storyId, initialStory.titleHint);
+
   const story = await prisma.deskStory.findUnique({
     where: { id: storyId },
     include: {
@@ -199,17 +301,7 @@ async function processStory(storyId: string) {
   });
 
   const category = story.category;
-  if (!category) {
-    await prisma.deskStory.update({
-      where: { id: storyId },
-      data: {
-        status: "REVIEW",
-        autoProcessingStartedAt: null,
-        warning: "এই story-র category নির্ধারণ করা হয়নি। Editor/Admin category সেট করুন।",
-      },
-    });
-    return { storyId, step: "review", reason: "missing_category" };
-  }
+  const categoryName = category?.name || "Sports";
 
   const sourcePackets = story.sources.map((source) => ({
     name: source.feed?.name || "RSS source",
@@ -234,7 +326,7 @@ async function processStory(storyId: string) {
   try {
     const research = await generateSportsResearch({
       title: story.titleHint,
-      categoryName: category.name,
+      categoryName,
       sources: sourcePackets,
     });
 
@@ -311,9 +403,10 @@ async function processStory(storyId: string) {
       sourceUrls: story.sources.slice(0, 3).map((source) => source.url),
     });
 
+    const publicCategorySlug = category?.slug || "news";
     const postUrl =
       "https://www.khelatv.com/" +
-      category.slug +
+      publicCategorySlug +
       "/POST_ID_PENDING";
     const caption = buildFacebookCaption({
       title: article.title || story.titleHint,
@@ -352,9 +445,11 @@ async function processStory(storyId: string) {
             facebookCaption: caption,
             facebookAutoPost: true,
             facebookStatus: "READY",
-            categories: {
-              connect: [{ id: category.id }],
-            },
+            categories: category
+              ? {
+                  connect: [{ id: category.id }],
+                }
+              : undefined,
           },
         });
 
@@ -363,7 +458,7 @@ async function processStory(storyId: string) {
       excerpt: post.excerpt,
       url:
         "https://www.khelatv.com/" +
-        category.slug +
+        publicCategorySlug +
         "/" +
         post.id,
       tags: post.tags,
@@ -550,5 +645,6 @@ export async function runNewsroom(limit = 4) {
 }
 
 export async function processOneStory(storyId: string) {
+  await ingestFeed();
   return processStory(storyId);
 }
