@@ -165,6 +165,43 @@ export default function EditorPostForm({ postId }: { postId: string }) {
     );
   };
 
+  const publishToFacebook = async () => {
+    if (!post) return;
+
+    try {
+      setMessage("⏳ Facebook Photo Card তৈরি করে Page-এ প্রকাশ করা হচ্ছে...");
+      const response = await axios.post(
+        "/api/editor/posts/" + postId + "/facebook"
+      );
+      setPost({
+        ...post,
+        facebookStatus: response.data.published ? "PUBLISHED" : "FAILED",
+        facebookError: response.data.error || null,
+      });
+
+      if (response.data.published) {
+        setMessage(
+          "✅ Facebook-এ প্রকাশ হয়েছে" +
+            (response.data.pageName ? " — " + response.data.pageName : "")
+        );
+      } else {
+        setMessage(
+          "❌ Facebook-এ প্রকাশ হয়নি: " +
+            (response.data.error || "অজানা সমস্যা")
+        );
+      }
+    } catch (error) {
+      setMessage(
+        "❌ " +
+          (axios.isAxiosError(error)
+            ? error.response?.data?.error ||
+              error.response?.data?.message ||
+              "Facebook publish failed"
+            : "Facebook publish failed")
+      );
+    }
+  };
+
   const handleUpdate = async (e: FormEvent) => {
     e.preventDefault();
     if (!post) return;
@@ -178,7 +215,7 @@ export default function EditorPostForm({ postId }: { postId: string }) {
         handleGalleryUpload(),
       ]);
 
-      await axios.put("/api/editor/posts/" + postId, {
+      const saveResponse = await axios.put("/api/editor/posts/" + postId, {
         title: post.title,
         content: post.content,
         tags: post.tags,
@@ -196,7 +233,23 @@ export default function EditorPostForm({ postId }: { postId: string }) {
 
       setGalleryImages(uploadedGallery);
       setGalleryFiles([]);
-      setMessage("✅ পোস্ট আপডেট হয়েছে");
+      const facebookResult = saveResponse.data?.facebook;
+      if (facebookResult?.published) {
+        setMessage("✅ পোস্ট আপডেট হয়েছে এবং Facebook-এ প্রকাশ হয়েছে");
+      } else if (facebookResult?.attempted && facebookResult?.error) {
+        setMessage("✅ পোস্ট আপডেট হয়েছে · ❌ Facebook: " + facebookResult.error);
+        setPost((current) =>
+          current
+            ? {
+                ...current,
+                facebookStatus: "FAILED",
+                facebookError: facebookResult.error,
+              }
+            : current
+        );
+      } else {
+        setMessage("✅ পোস্ট আপডেট হয়েছে");
+      }
     } catch (error) {
       const responseMessage = axios.isAxiosError(error)
         ? error.response?.data?.message
@@ -268,12 +321,24 @@ export default function EditorPostForm({ postId }: { postId: string }) {
         </div>
       )}
 
-      <div className="border rounded-xl p-4 bg-blue-50 space-y-3">
+      <div className="border rounded-xl p-4 bg-blue-50 space-y-4">
         <div>
-          <p className="font-semibold">📘 Facebook Auto Post</p>
+          <p className="font-semibold">📘 Facebook Publishing</p>
           <p className="text-xs text-gray-600 mt-1">
-            পোস্ট Published করলে এই caption ও feature image দিয়ে Facebook Page-এ পোস্ট করার চেষ্টা করবে।
+            Facebook-এ feature image নয়, আলাদা 1200×630 branded photo card ব্যবহার হবে।
+            Article Publish হওয়ার পর auto-post করা যাবে, অথবা এখান থেকে manually publish করা যাবে।
           </p>
+        </div>
+
+        <div className="border rounded-lg bg-white overflow-hidden">
+          <div className="px-3 py-2 text-xs font-medium text-gray-600 border-b">
+            🖼️ Facebook Photo Card Preview
+          </div>
+          <img
+            src={"/api/facebook/card/" + postId + "?preview=" + Date.now()}
+            alt="Facebook Photo Card"
+            className="w-full aspect-[1200/630] object-cover"
+          />
         </div>
 
         <textarea
@@ -294,6 +359,7 @@ export default function EditorPostForm({ postId }: { postId: string }) {
                   "/api/editor/posts/" + postId + "/facebook-caption"
                 );
                 setPost({ ...post, facebookCaption: response.data.caption });
+                setMessage("✅ Facebook caption তৈরি হয়েছে");
               } catch (error) {
                 setMessage(
                   "❌ " +
@@ -317,7 +383,7 @@ export default function EditorPostForm({ postId }: { postId: string }) {
                 setPost({ ...post, facebookAutoPost: e.target.checked })
               }
             />
-            Publish হলে Facebook-এ auto-post
+            Article Publish হলে Facebook-এ auto-post
           </label>
 
           <span className="text-xs text-gray-600">
@@ -325,8 +391,27 @@ export default function EditorPostForm({ postId }: { postId: string }) {
           </span>
         </div>
 
+        <div className="flex flex-wrap gap-3">
+          <button
+            type="button"
+            onClick={publishToFacebook}
+            disabled={post.status !== "PUBLISHED" || post.facebookStatus === "PUBLISHED"}
+            className="bg-blue-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm font-medium"
+          >
+            {post.facebookStatus === "PUBLISHED"
+              ? "✅ Facebook-এ প্রকাশিত"
+              : "📘 Facebook-এ এখনই প্রকাশ করুন"}
+          </button>
+
+          {post.status !== "PUBLISHED" && (
+            <span className="text-xs text-orange-700 self-center">
+              Manual Facebook publish-এর আগে Article Publish করুন।
+            </span>
+          )}
+        </div>
+
         {post.facebookError && (
-          <p className="text-xs text-red-600">{post.facebookError}</p>
+          <p className="text-sm text-red-600">{post.facebookError}</p>
         )}
       </div>
 
