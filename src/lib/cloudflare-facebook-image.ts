@@ -1,8 +1,8 @@
 import { v2 as cloudinary, UploadApiResponse } from "cloudinary";
 
 const CLOUDFLARE_MODEL = "@cf/black-forest-labs/flux-2-klein-4b";
-const WIDTH = 1280;
-const HEIGHT = 720;
+const WIDTH = 1024;
+const HEIGHT = 1280;
 
 function env(name: string) {
   return String(process.env[name] || "").trim();
@@ -29,12 +29,12 @@ export function defaultFacebookImagePrompt(input: {
 
   return [
     "Create one premium editorial sports news photograph/illustration for a Bangladeshi digital sports newsroom.",
-    "16:9 landscape composition, realistic and visually strong, one clear subject, natural believable lighting, modern professional newspaper aesthetic.",
+    "4:5 portrait composition, realistic and visually strong, one clear subject, natural believable lighting, modern professional newspaper aesthetic.",
     "The image must visually communicate the core event or subject of the story without using any text.",
     "Do not add words, letters, numbers, captions, logos, watermarks, scoreboards, fake screenshots, fake documents or readable signage.",
     "Do not create an identifiable fake portrait of a real person. Use a believable generic athlete, stadium, equipment, venue, crowd, trophy or action scene when appropriate.",
     "Avoid excessive cinematic effects, collage, clutter and generic stock-photo appearance.",
-    "Leave a little clean visual space for a headline overlay to be added later by the website.",
+    "Keep the main subject inside the central safe area because a branded headline panel will be added by the website.",
     "Category: " + category,
     "Story headline: " + title,
     excerpt ? "Story context: " + excerpt : "",
