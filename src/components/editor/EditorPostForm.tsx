@@ -426,49 +426,6 @@ export default function EditorPostForm({ postId }: { postId: string }) {
           <p className="text-xs text-red-600">{post.facebookError}</p>
         )}
       </div>
-          <button
-            type="button"
-            onClick={async () => {
-              try {
-                const response = await axios.post(
-                  "/api/editor/posts/" + postId + "/facebook-caption"
-                );
-                setPost({ ...post, facebookCaption: response.data.caption });
-              } catch (error) {
-                setMessage(
-                  "❌ " +
-                    (axios.isAxiosError(error)
-                      ? error.response?.data?.message ||
-                        "Facebook caption তৈরি করা যায়নি"
-                      : "Facebook caption তৈরি করা যায়নি")
-                );
-              }
-            }}
-            className="border bg-white px-3 py-2 rounded-lg text-sm"
-          >
-            ✨ Caption তৈরি করুন
-          </button>
-
-          <label className="inline-flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={Boolean(post.facebookAutoPost)}
-              onChange={(e) =>
-                setPost({ ...post, facebookAutoPost: e.target.checked })
-              }
-            />
-            Publish হলে Facebook-এ auto-post
-          </label>
-
-          <span className="text-xs text-gray-600">
-            Status: {post.facebookStatus || "NONE"}
-          </span>
-        </div>
-
-        {post.facebookError && (
-          <p className="text-xs text-red-600">{post.facebookError}</p>
-        )}
-      </div>
 
       <select
         value={post.authorId || ""}
