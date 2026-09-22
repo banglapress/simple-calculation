@@ -95,7 +95,10 @@ async function ensureCardFont() {
       "url(/fonts/NotoSerifBengali.ttf)"
     );
     await font.load();
-    document.fonts.add(font);
+    const fontSet = document.fonts as unknown as {
+      add?: (loadedFont: FontFace) => void;
+    };
+    fontSet.add?.(font);
   } catch {
     // Browser can fall back to a Bengali-capable system font.
   }
