@@ -1,13 +1,20 @@
-// src/app/api/posts/route.ts
-
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "../auth/[...nextauth]/route";
 
+function makeExcerpt(content: string) {
+  return content
+    .replace(/<[^>]+>/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 180);
+}
+
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  if (!session || !session.user?.email) {
+
+  if (!session?.user?.email) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }
 
@@ -23,6 +30,7 @@ export async function POST(req: NextRequest) {
 
   const user = await prisma.user.findUnique({
     where: { email: session.user.email },
+    select: { id: true },
   });
 
   if (!user) {
@@ -34,6 +42,7 @@ export async function POST(req: NextRequest) {
       data: {
         title,
         content,
+        excerpt: makeExcerpt(content ?? ""),
         featureImage,
         status,
         tags,
