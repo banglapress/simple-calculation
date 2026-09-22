@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export default function AdminDashboard() {
   return (
     <div className="max-w-5xl mx-auto py-6 space-y-6">
@@ -7,7 +9,7 @@ export default function AdminDashboard() {
       </div>
 
       <div className="grid md:grid-cols-2 gap-4">
-        <a
+        <Link
           href="/dashboard/admin/ai"
           className="block rounded-xl border bg-white p-5 hover:shadow-md transition"
         >
@@ -16,9 +18,9 @@ export default function AdminDashboard() {
           <p className="text-sm text-gray-600 mt-1">
             RSS feed কল করুন, source item দেখুন এবং Gemini দিয়ে AI draft তৈরি করুন।
           </p>
-        </a>
+        </Link>
 
-        <a
+        <Link
           href="/dashboard/admin/categories"
           className="block rounded-xl border bg-white p-5 hover:shadow-md transition"
         >
@@ -27,7 +29,7 @@ export default function AdminDashboard() {
           <p className="text-sm text-gray-600 mt-1">
             Category ও subcategory তৈরি, পরিবর্তন এবং মুছুন।
           </p>
-        </a>
+        </Link>
       </div>
     </div>
   );
