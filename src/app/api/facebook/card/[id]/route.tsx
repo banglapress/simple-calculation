@@ -115,7 +115,9 @@ export async function GET(
   }
 
   const font = await getBanglaFont();
-  const sourceImageUrl = absoluteImageUrl(post.featureImage);
+  const sourceImageUrl =
+    absoluteImageUrl(post.facebookImageUrl) ||
+    absoluteImageUrl(post.featureImage);
   const imageUrl = sourceImageUrl
     ? await loadImageDataUrl(sourceImageUrl)
     : "";
