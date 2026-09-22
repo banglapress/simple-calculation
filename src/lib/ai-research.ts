@@ -141,52 +141,98 @@ export async function generateSportsResearch(input: {
     sourceBlock,
   ].join("\n\n");
 
-  const response = await fetch(
-    "https://generativelanguage.googleapis.com/v1beta/models/" +
-      encodeURIComponent(getModel()) +
-      ":generateContent",
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-goog-api-key": key,
-      },
-      body: JSON.stringify({
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
-        generationConfig: {
-          responseMimeType: "application/json",
-          responseJsonSchema: {
-            type: "object",
-            properties: {
-              summary: { type: "string" },
-              key_facts: { type: "array", items: { type: "string" } },
-              source_conflicts: { type: "array", items: { type: "string" } },
-              warnings: { type: "array", items: { type: "string" } },
-              relevance_score: { type: "integer", minimum: 0, maximum: 100 },
-              relevance_reason: { type: "string" },
-            },
-            required: [
-              "summary",
-              "key_facts",
-              "source_conflicts",
-              "warnings",
-              "relevance_score",
-              "relevance_reason",
-            ],
-            additionalProperties: false,
-          },
-          thinkingConfig: { thinkingLevel: "minimal" },
-          maxOutputTokens: 5000,
+  const requestBody = {
+    contents: [{ role: "user", parts: [{ text: prompt }] }],
+    generationConfig: {
+      responseMimeType: "application/json",
+      responseJsonSchema: {
+        type: "object",
+        properties: {
+          summary: { type: "string" },
+          key_facts: { type: "array", items: { type: "string" } },
+          source_conflicts: { type: "array", items: { type: "string" } },
+          warnings: { type: "array", items: { type: "string" } },
+          relevance_score: { type: "integer", minimum: 0, maximum: 100 },
+          relevance_reason: { type: "string" },
         },
-      }),
-    }
+        required: [
+          "summary",
+          "key_facts",
+          "source_conflicts",
+          "warnings",
+          "relevance_score",
+          "relevance_reason",
+        ],
+        additionalProperties: false,
+      },
+      thinkingConfig: { thinkingLevel: "minimal" },
+      maxOutputTokens: 5000,
+    },
+  };
+
+  const models = Array.from(
+    new Set([getModel(), DEFAULT_MODEL, "gemini-3.5-flash"])
   );
 
-  const raw = await response.text();
-  if (!response.ok) {
-    throw new Error(
-      "Gemini research HTTP " + response.status + ": " + raw.slice(0, 300)
-    );
+  let raw = "";
+  let lastError = "";
+
+  for (const selectedModel of models) {
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
+      try {
+        const response = await fetch(
+          "https://generativelanguage.googleapis.com/v1beta/models/" +
+            encodeURIComponent(selectedModel) +
+            ":generateContent",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-goog-api-key": key,
+            },
+            body: JSON.stringify(requestBody),
+          }
+        );
+
+        raw = await response.text();
+
+        if (response.ok) {
+          lastError = "";
+          break;
+        }
+
+        lastError =
+          "Gemini research HTTP " +
+          response.status +
+          ": " +
+          raw.slice(0, 300);
+
+        if (response.status === 404 && selectedModel !== models[models.length - 1]) {
+          break;
+        }
+
+        if (![429, 500, 502, 503, 504].includes(response.status) || attempt === 3) {
+          break;
+        }
+      } catch (error) {
+        lastError =
+          error instanceof Error
+            ? error.message
+            : "Gemini research request failed";
+
+        if (attempt === 3) break;
+      }
+
+      await new Promise((resolve) =>
+        setTimeout(resolve, 1000 * 2 ** (attempt - 1))
+      );
+    }
+
+    if (!lastError) break;
+  }
+
+  if (lastError) {
+    throw new Error(lastError);
   }
 
   const payload = JSON.parse(raw) as {
