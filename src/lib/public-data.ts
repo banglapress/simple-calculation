@@ -4,14 +4,17 @@ import { prisma } from "@/lib/prisma";
 const HOME_REVALIDATE_SECONDS = 60;
 const CATEGORY_REVALIDATE_SECONDS = 3600;
 
-type HomeCategorySlug =
-  | "football"
-  | "cricket"
-  | "hockey"
-  | "athletics"
-  | "othersports"
-  | "sports-tech"
-  | "sports-culture";
+const HOME_CATEGORY_SLUGS = [
+  "football",
+  "cricket",
+  "hockey",
+  "athletics",
+  "othersports",
+  "sports-tech",
+  "sports-culture",
+] as const;
+
+type HomeCategorySlug = (typeof HOME_CATEGORY_SLUGS)[number];
 
 const publicPostCardSelect = {
   id: true,
@@ -19,8 +22,8 @@ const publicPostCardSelect = {
   featureImage: true,
   excerpt: true,
   placement: true,
-  categories: { select: { slug: true } },
-  subcategories: { select: { slug: true } },
+  categories: { select: { slug: true, name: true } },
+  subcategories: { select: { slug: true, name: true } },
 } as const;
 
 const getCachedCategories = unstable_cache(
@@ -51,6 +54,116 @@ export function getPublicCategories() {
   return getCachedCategories();
 }
 
+const getCachedCategoryPage = (slug: string) =>
+  unstable_cache(
+    async () =>
+      prisma.category.findUnique({
+        where: { slug },
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          subcategories: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+            },
+            orderBy: { id: "asc" },
+          },
+        },
+      }),
+    ["public-category", slug],
+    { revalidate: CATEGORY_REVALIDATE_SECONDS }
+  )();
+
+export function getPublicCategoryBySlug(slug: string) {
+  return getCachedCategoryPage(slug);
+}
+
+const getCachedCategoryPosts = (slug: string) =>
+  unstable_cache(
+    async () =>
+      prisma.post.findMany({
+        where: {
+          status: "PUBLISHED",
+          categories: { some: { slug } },
+        },
+        orderBy: { updatedAt: "desc" },
+        take: 30,
+        select: publicPostCardSelect,
+      }),
+    ["public-category-posts", slug],
+    { revalidate: HOME_REVALIDATE_SECONDS }
+  )();
+
+export function getPublicCategoryPosts(slug: string) {
+  return getCachedCategoryPosts(slug);
+}
+
+const getCachedSubcategoryPage = (categorySlug: string, subcategorySlug: string) =>
+  unstable_cache(
+    async () =>
+      prisma.subcategory.findFirst({
+        where: {
+          slug: subcategorySlug,
+          category: { slug: categorySlug },
+        },
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          category: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+            },
+          },
+        },
+      }),
+    ["public-subcategory", categorySlug, subcategorySlug],
+    { revalidate: CATEGORY_REVALIDATE_SECONDS }
+  )();
+
+export function getPublicSubcategoryBySlug(
+  categorySlug: string,
+  subcategorySlug: string
+) {
+  return getCachedSubcategoryPage(categorySlug, subcategorySlug);
+}
+
+const getCachedSubcategoryPosts = (
+  categorySlug: string,
+  subcategorySlug: string
+) =>
+  unstable_cache(
+    async () =>
+      prisma.post.findMany({
+        where: {
+          status: "PUBLISHED",
+          subcategories: {
+            some: {
+              slug: subcategorySlug,
+              category: { slug: categorySlug },
+            },
+          },
+        },
+        orderBy: { updatedAt: "desc" },
+        take: 30,
+        select: publicPostCardSelect,
+      }),
+    ["public-subcategory-posts", categorySlug, subcategorySlug],
+    { revalidate: HOME_REVALIDATE_SECONDS }
+  )();
+
+export function getPublicSubcategoryPosts(
+  categorySlug: string,
+  subcategorySlug: string
+) {
+  return getCachedSubcategoryPosts(categorySlug, subcategorySlug);
+}
+
 const getCachedHomePlacementPosts = unstable_cache(
   async () =>
     prisma.post.findMany({
@@ -73,18 +186,6 @@ const getCachedHomePlacementPosts = unstable_cache(
 export function getHomePlacementPosts() {
   return getCachedHomePlacementPosts();
 }
-
-const HOME_CATEGORY_SLUGS = [
-  "football",
-  "cricket",
-  "hockey",
-  "athletics",
-  "othersports",
-  "sports-tech",
-  "sports-culture",
-] as const;
-
-type HomeCategorySlug = (typeof HOME_CATEGORY_SLUGS)[number];
 
 const getCachedHomeCategoryPosts = unstable_cache(
   async () =>
@@ -201,7 +302,6 @@ export function getPlacementSidebarPosts() {
   return getCachedPlacementSidebarPosts();
 }
 
-
 const getCachedBreakingNews = unstable_cache(
   async () =>
     prisma.post.findMany({
@@ -239,7 +339,6 @@ const getCachedLiveScore = unstable_cache(
 export function getLiveScore() {
   return getCachedLiveScore();
 }
-
 
 function getCachedRelatedPosts(categoryId: number, postId: string) {
   return unstable_cache(
