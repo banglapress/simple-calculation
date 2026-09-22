@@ -73,6 +73,8 @@ model Post {
   isBreaking         Boolean        @default(false)
   placement          Placement      @default(NONE)
   facebookCaption    String?        @db.Text
+  facebookImageUrl   String?        @db.Text
+  facebookImagePrompt String?       @db.Text
   facebookAutoPost   Boolean        @default(false)
   facebookStatus     FacebookStatus @default(NONE)
   facebookPostId     String?
