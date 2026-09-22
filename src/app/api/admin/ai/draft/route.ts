@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { prisma } from "@/lib/prisma";
-import { generateSportsArticle } from "@/lib/ai";
+import { processOneStory } from "@/lib/desk-newsroom";
 
 export const runtime = "nodejs";
 
@@ -43,97 +43,89 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const feed =
-      Number.isInteger(feedId) && feedId > 0
-        ? await prisma.newsFeed.findUnique({
-            where: { id: feedId },
-            select: {
-              id: true,
-              name: true,
-              minRelevance: true,
-            },
-          })
-        : null;
-
-    const existing = await prisma.post.findFirst({
-      where: {
-        OR: [
-          { sourceUrl: url },
-          { title },
-        ],
-      },
-      select: { id: true, title: true, sourceUrl: true },
+    const existingPost = await prisma.post.findFirst({
+      where: { sourceUrl: url },
+      select: { id: true, title: true, status: true },
     });
 
-    if (existing) {
+    if (existingPost) {
       return NextResponse.json(
         {
-          message: "এই source থেকে একই বা খুব কাছাকাছি একটি draft/post আগে থেকেই আছে।",
-          post: existing,
+          message: "এই source থেকে পোস্ট আগে থেকেই আছে।",
+          post: existingPost,
         },
         { status: 409 }
       );
     }
 
-    const draft = await generateSportsArticle({
-      title,
-      categoryName: category.name,
-      sourceText: description,
-      sourceUrls: [url],
+    let storySource = await prisma.deskStorySource.findFirst({
+      where: { url },
+      select: { storyId: true },
     });
 
-    const threshold = feed?.minRelevance ?? 60;
+    if (!storySource) {
+      const story = await prisma.deskStory.create({
+        data: {
+          titleHint: title,
+          categoryId,
+          status: "NEW",
+          sourceCount: 1,
+        },
+      });
 
-    if (draft.relevanceScore < threshold) {
+      await prisma.deskStorySource.create({
+        data: {
+          storyId: story.id,
+          feedId: Number.isInteger(feedId) && feedId > 0 ? feedId : null,
+          url,
+          canonicalUrl: url,
+          title,
+          excerpt: description || null,
+          rawText: description || null,
+          origin: "manual",
+        },
+      });
+
+      storySource = { storyId: story.id };
+    } else {
+      await prisma.deskStory.update({
+        where: { id: storySource.storyId },
+        data: {
+          categoryId,
+          status: "NEW",
+          updatedAt: new Date(),
+        },
+      });
+    }
+
+    const result = await processOneStory(storySource.storyId);
+
+    if (result.step === "review") {
       return NextResponse.json(
         {
-          message:
-            "AI relevance check-এ এই itemটি KhelaTV-এর sports desk-এর জন্য যথেষ্ট প্রাসঙ্গিক নয়।",
-          relevanceScore: draft.relevanceScore,
-          relevanceReason: draft.relevanceReason,
-          threshold,
+          message: "AI relevance check-এর পরে Editor Review দরকার।",
+          ...result,
         },
         { status: 422 }
       );
     }
 
-    const post = await prisma.post.create({
-      data: {
-        title: draft.title || title,
-        content: draft.body_html || "",
-        excerpt: draft.excerpt || "",
-        featureImage: "",
-        sourceUrl: url,
-        tags: draft.tags.join(", "),
-        status: "DRAFT",
-        placement: "NONE",
-        isBreaking: false,
-        author: {
-          connect: {
-            email: session.user.email,
-          },
-        },
-        categories: {
-          connect: [{ id: category.id }],
-        },
-      },
-      select: {
-        id: true,
-        title: true,
-        status: true,
-      },
+    if (result.step !== "draft" || !result.postId) {
+      return NextResponse.json(
+        { message: "AI draft তৈরি হয়নি।", ...result },
+        { status: 500 }
+      );
+    }
+
+    const post = await prisma.post.findUnique({
+      where: { id: result.postId },
+      select: { id: true, title: true, status: true },
     });
 
     return NextResponse.json({
       post,
-      warnings: draft.warnings,
-      provider: draft.provider,
-      model: draft.model,
-      sourceUrl: url,
-      relevanceScore: draft.relevanceScore,
-      relevanceReason: draft.relevanceReason,
-      threshold,
-      feedName: feed?.name || null,
+      storyId: storySource.storyId,
+      relevanceScore: result.relevanceScore ?? null,
     });
   } catch (error) {
     const message =

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import axios from "axios";
 
@@ -11,6 +12,8 @@ type Feed = {
   includeKeywords: string | null;
   excludeKeywords: string | null;
   minRelevance: number;
+  categoryId: number | null;
+  category?: { id: number; name: string; slug: string } | null;
 };
 
 type FeedItem = {
@@ -25,43 +28,73 @@ type Category = {
   name: string;
 };
 
-type FeedStats = {
-  total: number;
-  included: number;
-  excluded: number;
+type Story = {
+  id: string;
+  titleHint: string;
+  status: string;
+  sourceCount: number;
+  relevanceScore: number | null;
+  relevanceReason: string | null;
+  warning: string | null;
+  lastError: string | null;
+  category?: { id: number; name: string; slug: string } | null;
+  post?: {
+    id: string;
+    title: string;
+    status: string;
+    facebookStatus: string;
+  } | null;
+  sources?: Array<{
+    title: string;
+    url: string;
+    feed?: { name: string } | null;
+  }>;
+};
+
+const STATUS_LABELS: Record<string, string> = {
+  NEW: "নতুন",
+  RESEARCHING: "Researching",
+  DRAFT: "Draft",
+  REVIEW: "Editor Review",
+  APPROVED: "Approved",
+  PUBLISHED: "Published",
+  REJECTED: "Rejected",
 };
 
 export default function AINewsroom() {
   const [feeds, setFeeds] = useState<Feed[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [stories, setStories] = useState<Story[]>([]);
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
+  const [categoryId, setCategoryId] = useState("");
   const [includeKeywords, setIncludeKeywords] = useState("");
   const [excludeKeywords, setExcludeKeywords] = useState("");
   const [minRelevance, setMinRelevance] = useState(60);
   const [items, setItems] = useState<FeedItem[]>([]);
-  const [activeFeed, setActiveFeed] = useState<Feed | null>(null);
-  const [feedStats, setFeedStats] = useState<FeedStats | null>(null);
-  const [categoryId, setCategoryId] = useState("");
+  const [activeFeedId, setActiveFeedId] = useState<number | null>(null);
   const [message, setMessage] = useState("");
+  const [running, setRunning] = useState(false);
   const [loadingFeed, setLoadingFeed] = useState<number | null>(null);
-  const [drafting, setDrafting] = useState<string | null>(null);
   const [savingRules, setSavingRules] = useState<number | null>(null);
+  const [processingStory, setProcessingStory] = useState<string | null>(null);
 
-  const load = async () => {
-    const [feedsRes, catsRes] = await Promise.all([
+  async function load() {
+    const [feedRes, catRes, storyRes] = await Promise.all([
       axios.get<Feed[]>("/api/admin/ai/feeds"),
       axios.get<Category[]>("/api/admin/categories"),
+      axios.get<Story[]>("/api/admin/ai/stories"),
     ]);
-    setFeeds(feedsRes.data);
-    setCategories(catsRes.data);
-  };
+    setFeeds(feedRes.data);
+    setCategories(catRes.data);
+    setStories(storyRes.data);
+  }
 
   useEffect(() => {
     load().catch(() => setMessage("❌ AI Newsroom data লোড করা যায়নি"));
   }, []);
 
-  const addFeed = async () => {
+  async function addFeed() {
     if (!name.trim() || !url.trim()) {
       setMessage("❌ Source name এবং RSS URL দিন।");
       return;
@@ -71,17 +104,18 @@ export default function AINewsroom() {
       await axios.post("/api/admin/ai/feeds", {
         name,
         url,
+        categoryId: categoryId ? Number(categoryId) : null,
         includeKeywords,
         excludeKeywords,
         minRelevance,
       });
-
       setName("");
       setUrl("");
+      setCategoryId("");
       setIncludeKeywords("");
       setExcludeKeywords("");
       setMinRelevance(60);
-      setMessage("✅ RSS source ও filter rules যোগ হয়েছে");
+      setMessage("✅ RSS source ও newsroom rules যোগ হয়েছে");
       await load();
     } catch (error) {
       setMessage(
@@ -91,101 +125,84 @@ export default function AINewsroom() {
             : "RSS source যোগ করা যায়নি")
       );
     }
-  };
+  }
 
-  const updateFeedLocal = (
-    id: number,
-    patch: Partial<Pick<Feed, "includeKeywords" | "excludeKeywords" | "minRelevance">>
-  ) => {
-    setFeeds((current) =>
-      current.map((feed) => (feed.id === id ? { ...feed, ...patch } : feed))
-    );
-
-    if (activeFeed?.id === id) {
-      setActiveFeed((current) => (current ? { ...current, ...patch } : current));
-    }
-  };
-
-  const saveRules = async (feed: Feed) => {
+  async function saveRules(feed: Feed) {
     setSavingRules(feed.id);
-    setMessage("");
-
     try {
-      const response = await axios.patch(
-        "/api/admin/ai/feeds?id=" + feed.id,
-        {
-          includeKeywords: feed.includeKeywords || "",
-          excludeKeywords: feed.excludeKeywords || "",
-          minRelevance: feed.minRelevance,
-        }
-      );
-
-      updateFeedLocal(feed.id, {
-        includeKeywords: response.data.includeKeywords,
-        excludeKeywords: response.data.excludeKeywords,
-        minRelevance: response.data.minRelevance,
+      await axios.patch("/api/admin/ai/feeds?id=" + feed.id, {
+        categoryId: feed.categoryId,
+        includeKeywords: feed.includeKeywords || "",
+        excludeKeywords: feed.excludeKeywords || "",
+        minRelevance: feed.minRelevance,
       });
-
-      setMessage("✅ " + feed.name + " এর filter rules সংরক্ষণ হয়েছে");
+      setMessage("✅ " + feed.name + " rules সংরক্ষণ হয়েছে");
+      await load();
     } catch (error) {
       setMessage(
         "❌ " +
           (axios.isAxiosError(error)
-            ? error.response?.data?.message || "Filter rules save করা যায়নি"
-            : "Filter rules save করা যায়নি")
+            ? error.response?.data?.message || "Rules save করা যায়নি"
+            : "Rules save করা যায়নি")
       );
     } finally {
       setSavingRules(null);
     }
-  };
+  }
 
-  const toggleFeed = async (feed: Feed) => {
+  function patchFeed(
+    id: number,
+    patch: Partial<Pick<Feed, "categoryId" | "includeKeywords" | "excludeKeywords" | "minRelevance">>
+  ) {
+    setFeeds((current) =>
+      current.map((feed) => (feed.id === id ? { ...feed, ...patch } : feed))
+    );
+  }
+
+  async function runNewsroom() {
+    setRunning(true);
+    setMessage("");
+
     try {
-      const response = await axios.patch(
-        "/api/admin/ai/feeds?id=" + feed.id,
-        { enabled: !feed.enabled }
-      );
-      updateFeedLocal(feed.id, { enabled: response.data.enabled } as never);
+      const response = await axios.post("/api/admin/ai/run", { limit: 4 });
       setMessage(
-        response.data.enabled
-          ? "✅ " + feed.name + " চালু হয়েছে"
-          : "⏸️ " + feed.name + " বন্ধ করা হয়েছে"
+        "✅ Newsroom run শেষ। " +
+          response.data.draftCount +
+          "টি draft, " +
+          response.data.reviewCount +
+          "টি review, " +
+          response.data.errorCount +
+          "টি error।"
       );
+      await load();
     } catch (error) {
       setMessage(
         "❌ " +
           (axios.isAxiosError(error)
-            ? error.response?.data?.message || "Feed status বদলানো যায়নি"
-            : "Feed status বদলানো যায়নি")
+            ? error.response?.data?.message || "Newsroom run failed"
+            : "Newsroom run failed")
       );
+    } finally {
+      setRunning(false);
     }
-  };
+  }
 
-  const fetchFeed = async (feed: Feed) => {
+  async function fetchFeed(feed: Feed) {
     setLoadingFeed(feed.id);
-    setMessage("");
-
+    setActiveFeedId(feed.id);
+    setItems([]);
     try {
-      const response = await axios.put("/api/admin/ai/feeds", {
-        id: feed.id,
-      });
-
-      setActiveFeed(response.data.feed);
+      const response = await axios.put("/api/admin/ai/feeds", { id: feed.id });
       setItems(response.data.items || []);
-      setFeedStats(response.data.stats || null);
-
       const stats = response.data.stats;
       setMessage(
         "✅ " +
           feed.name +
-          " থেকে " +
-          (stats?.total || 0) +
-          "টি item এসেছে; filter-এর পরে " +
-          (stats?.included || 0) +
-          "টি রাখা হয়েছে" +
-          (stats?.excluded
-            ? " (" + stats.excluded + "টি বাদ)"
-            : "")
+          ": " +
+          stats.included +
+          "টি item রাখা হয়েছে, " +
+          stats.excluded +
+          "টি filter হয়েছে।"
       );
     } catch (error) {
       setMessage(
@@ -197,129 +214,161 @@ export default function AINewsroom() {
     } finally {
       setLoadingFeed(null);
     }
-  };
+  }
 
-  const createDraft = async (item: FeedItem) => {
-    if (!categoryId) {
-      setMessage("❌ আগে category নির্বাচন করুন");
+  async function createDraft(item: FeedItem, feed: Feed) {
+    if (!feed.categoryId) {
+      setMessage("❌ আগে এই RSS source-এর category সেট করুন।");
       return;
     }
-
-    setDrafting(item.link);
-    setMessage("");
 
     try {
       const response = await axios.post("/api/admin/ai/draft", {
         title: item.title,
         url: item.link,
         description: item.description,
-        categoryId: Number(categoryId),
-        feedId: activeFeed?.id,
+        categoryId: feed.categoryId,
+        feedId: feed.id,
       });
 
       setMessage(
-        "✅ AI draft তৈরি হয়েছে। Relevance " +
-          response.data.relevanceScore +
-          "/100 — " +
-          response.data.post.title +
-          "। এখন Editor Panel থেকে edit করুন।"
+        "✅ Story → Research → AI Draft সম্পন্ন। " +
+          (response.data.post?.title || "") +
+          " এখন Editor Panel-এর AI queue-তে আছে।"
       );
+      await load();
     } catch (error) {
       const data = axios.isAxiosError(error) ? error.response?.data : null;
-      if (axios.isAxiosError(error) && error.response?.status === 422) {
-        setMessage(
-          "⏭️ AI relevance " +
-            data?.relevanceScore +
-            "/100 — draft তৈরি করা হয়নি। " +
-            (data?.relevanceReason || "")
-        );
-      } else {
-        setMessage(
-          "❌ " +
-            (axios.isAxiosError(error)
-              ? data?.message || "AI draft তৈরি হয়নি"
-              : "AI draft তৈরি হয়নি")
-        );
-      }
-    } finally {
-      setDrafting(null);
+      setMessage(
+        "❌ " +
+          (data?.message || "AI draft তৈরি হয়নি") +
+          (data?.relevanceScore
+            ? " Relevance: " + data.relevanceScore + "/100"
+            : "")
+      );
+      await load();
     }
-  };
+  }
 
-  const deleteFeed = async (id: number) => {
+  async function processStory(story: Story) {
+    setProcessingStory(story.id);
+    try {
+      const response = await axios.post("/api/admin/ai/stories/" + story.id + "/run");
+      setMessage(
+        response.data.step === "draft"
+          ? "✅ Story-এর draft তৈরি হয়েছে। Editor queue-তে পাওয়া যাবে।"
+          : "⏭️ Story status: " + (response.data.step || "review")
+      );
+      await load();
+    } catch (error) {
+      setMessage(
+        "❌ " +
+          (axios.isAxiosError(error)
+            ? error.response?.data?.message || "Story process failed"
+            : "Story process failed")
+      );
+    } finally {
+      setProcessingStory(null);
+    }
+  }
+
+  async function deleteFeed(id: number) {
     if (!confirm("এই RSS source মুছে ফেলবেন?")) return;
-
     await axios.delete("/api/admin/ai/feeds?id=" + id);
     await load();
+  }
 
-    if (activeFeed?.id === id) {
-      setActiveFeed(null);
-      setItems([]);
-      setFeedStats(null);
-    }
-  };
+  async function toggleFeed(feed: Feed) {
+    await axios.patch("/api/admin/ai/feeds?id=" + feed.id, {
+      enabled: !feed.enabled,
+    });
+    await load();
+  }
 
   return (
     <div className="space-y-6 max-w-6xl">
-      <div>
-        <h1 className="text-2xl font-bold">🤖 AI Newsroom</h1>
-        <p className="text-sm text-gray-600 mt-1">
-          RSS → keyword filter → duplicate check → AI relevance → draft।
-          Draft প্রথমে DRAFT থাকবে; homepage position Editor সেট করবেন।
-        </p>
+      <div className="flex flex-wrap justify-between gap-3 items-start">
+        <div>
+          <h1 className="text-2xl font-bold">🤖 KhelaTV AI Newsroom</h1>
+          <p className="text-sm text-gray-600 mt-1">
+            RSS → Filter → Story Cluster → Research → AI Draft → Editor Queue → Facebook
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={runNewsroom}
+          disabled={running}
+          className="bg-purple-700 disabled:opacity-50 text-white px-5 py-3 rounded-lg font-medium"
+        >
+          {running ? "⏳ Newsroom চলছে..." : "▶️ Run Newsroom Now"}
+        </button>
       </div>
 
       <section className="border rounded-xl bg-white p-5 space-y-4">
-        <h2 className="font-bold">📡 RSS Feed যোগ করুন</h2>
+        <h2 className="font-bold">📡 RSS Source যোগ করুন</h2>
 
         <div className="grid md:grid-cols-2 gap-3">
           <input
             value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Source name, যেমন BBC Sport"
+            onChange={(event) => setName(event.target.value)}
+            placeholder="যেমন ESPNcricinfo"
             className="border rounded-lg p-3"
           />
           <input
             value={url}
-            onChange={(e) => setUrl(e.target.value)}
+            onChange={(event) => setUrl(event.target.value)}
             placeholder="https://example.com/rss.xml"
             className="border rounded-lg p-3"
           />
         </div>
 
-        <div className="grid md:grid-cols-2 gap-3">
+        <div className="grid md:grid-cols-3 gap-3">
+          <select
+            value={categoryId}
+            onChange={(event) => setCategoryId(event.target.value)}
+            className="border rounded-lg p-3"
+          >
+            <option value="">-- Default category --</option>
+            {categories.map((category) => (
+              <option key={category.id} value={category.id}>
+                {category.name}
+              </option>
+            ))}
+          </select>
+
           <textarea
             value={includeKeywords}
-            onChange={(e) => setIncludeKeywords(e.target.value)}
-            placeholder={"Include keywords — প্রতি লাইনে একটি\nBangladesh\nCricket\nBPL"}
-            className="border rounded-lg p-3 min-h-28"
+            onChange={(event) => setIncludeKeywords(event.target.value)}
+            placeholder={"Include keywords\nBangladesh\nCricket\nBPL"}
+            className="border rounded-lg p-3 min-h-24"
           />
+
           <textarea
             value={excludeKeywords}
-            onChange={(e) => setExcludeKeywords(e.target.value)}
-            placeholder={"Exclude keywords — প্রতি লাইনে একটি\nbetting\nfantasy\nhoroscope"}
-            className="border rounded-lg p-3 min-h-28"
+            onChange={(event) => setExcludeKeywords(event.target.value)}
+            placeholder={"Exclude keywords\nbetting\nfantasy\nhoroscope"}
+            className="border rounded-lg p-3 min-h-24"
           />
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex items-center gap-4 flex-wrap">
           <label className="text-sm">
-            Minimum AI relevance:
+            Minimum AI relevance
             <input
               type="number"
               min={0}
               max={100}
               value={minRelevance}
-              onChange={(e) =>
+              onChange={(event) =>
                 setMinRelevance(
-                  Math.min(100, Math.max(0, Number(e.target.value) || 0))
+                  Math.min(100, Math.max(0, Number(event.target.value) || 0))
                 )
               }
               className="ml-2 w-20 border rounded-lg p-2"
             />
           </label>
           <span className="text-xs text-gray-500">
-            60 দিয়ে শুরু করা নিরাপদ। বেশি দিলে শুধু বেশি প্রাসঙ্গিক খবর যাবে।
+            সাধারণ sports feed-এর জন্য 60 দিয়ে শুরু করুন।
           </span>
         </div>
 
@@ -328,216 +377,241 @@ export default function AINewsroom() {
           onClick={addFeed}
           className="bg-blue-600 text-white px-4 py-2 rounded-lg"
         >
-          + RSS Source ও Filter যোগ করুন
+          + Source যোগ করুন
         </button>
       </section>
 
       <section className="border rounded-xl bg-white p-5">
-        <h2 className="font-bold mb-3">আপনার RSS Sources</h2>
+        <h2 className="font-bold mb-4">📚 Sources & Rules</h2>
 
-        {feeds.length === 0 ? (
-          <p className="text-sm text-gray-500">
-            এখনও কোনো RSS source যোগ হয়নি।
-          </p>
-        ) : (
-          <div className="space-y-3">
-            {feeds.map((feed) => (
-              <div key={feed.id} className="border rounded-lg p-4 space-y-3">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="font-medium">{feed.name}</p>
-                      <span
-                        className={
-                          feed.enabled
-                            ? "text-xs px-2 py-1 rounded-full bg-green-100 text-green-700"
-                            : "text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-600"
-                        }
-                      >
-                        {feed.enabled ? "চালু" : "বন্ধ"}
-                      </span>
-                    </div>
-                    <p className="text-xs text-gray-500 break-all mt-1">
-                      {feed.url}
-                    </p>
-                  </div>
-
-                  <div className="flex gap-2 flex-wrap">
-                    <button
-                      type="button"
-                      onClick={() => toggleFeed(feed)}
-                      className="border px-3 py-2 rounded-lg text-sm"
-                    >
-                      {feed.enabled ? "⏸️ বন্ধ" : "▶️ চালু"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => fetchFeed(feed)}
-                      disabled={loadingFeed === feed.id || !feed.enabled}
-                      className="bg-green-600 disabled:opacity-50 text-white px-3 py-2 rounded-lg text-sm"
-                    >
-                      {loadingFeed === feed.id ? "কল হচ্ছে..." : "📡 RSS কল করুন"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => deleteFeed(feed.id)}
-                      className="text-red-600 border px-3 py-2 rounded-lg text-sm"
-                    >
-                      মুছুন
-                    </button>
-                  </div>
+        <div className="space-y-4">
+          {feeds.map((feed) => (
+            <div key={feed.id} className="border rounded-lg p-4 space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="font-semibold">{feed.name}</p>
+                  <p className="text-xs text-gray-500 break-all">{feed.url}</p>
                 </div>
 
-                <div className="grid lg:grid-cols-3 gap-3">
-                  <textarea
-                    value={feed.includeKeywords || ""}
-                    onChange={(e) =>
-                      updateFeedLocal(feed.id, {
-                        includeKeywords: e.target.value,
-                      })
-                    }
-                    placeholder="Include keywords"
-                    className="border rounded-lg p-3 min-h-24 text-sm"
-                  />
-                  <textarea
-                    value={feed.excludeKeywords || ""}
-                    onChange={(e) =>
-                      updateFeedLocal(feed.id, {
-                        excludeKeywords: e.target.value,
-                      })
-                    }
-                    placeholder="Exclude keywords"
-                    className="border rounded-lg p-3 min-h-24 text-sm"
-                  />
-                  <div className="border rounded-lg p-3">
-                    <label className="text-sm font-medium">
-                      Minimum AI relevance
-                    </label>
-                    <input
-                      type="number"
-                      min={0}
-                      max={100}
-                      value={feed.minRelevance}
-                      onChange={(e) =>
-                        updateFeedLocal(feed.id, {
-                          minRelevance: Math.min(
-                            100,
-                            Math.max(0, Number(e.target.value) || 0)
-                          ),
-                        })
-                      }
-                      className="mt-2 w-full border rounded-lg p-2"
-                    />
-                    <p className="text-xs text-gray-500 mt-2">
-                      Include ফাঁকা থাকলে সব item থাকবে, শুধু exclude বাদ যাবে।
-                    </p>
-                  </div>
+                <div className="flex gap-2 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => toggleFeed(feed)}
+                    className="border px-3 py-2 rounded-lg text-sm"
+                  >
+                    {feed.enabled ? "⏸️ বন্ধ" : "▶️ চালু"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => fetchFeed(feed)}
+                    disabled={loadingFeed === feed.id || !feed.enabled}
+                    className="bg-green-600 disabled:opacity-50 text-white px-3 py-2 rounded-lg text-sm"
+                  >
+                    {loadingFeed === feed.id ? "কল হচ্ছে..." : "📡 Preview RSS"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => deleteFeed(feed.id)}
+                    className="text-red-600 border px-3 py-2 rounded-lg text-sm"
+                  >
+                    মুছুন
+                  </button>
                 </div>
+              </div>
 
-                <div className="flex justify-between items-center gap-3 flex-wrap">
-                  <p className="text-xs text-gray-500">
-                    Include = যেকোনো keyword মিললে রাখবে · Exclude = মিললে বাদ
-                  </p>
+              <div className="grid lg:grid-cols-4 gap-3">
+                <select
+                  value={feed.categoryId ? String(feed.categoryId) : ""}
+                  onChange={(event) =>
+                    patchFeed(feed.id, {
+                      categoryId: event.target.value ? Number(event.target.value) : null,
+                    })
+                  }
+                  className="border rounded-lg p-3"
+                >
+                  <option value="">-- Category --</option>
+                  {categories.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
+
+                <textarea
+                  value={feed.includeKeywords || ""}
+                  onChange={(event) =>
+                    patchFeed(feed.id, { includeKeywords: event.target.value })
+                  }
+                  placeholder="Include keywords"
+                  className="border rounded-lg p-3 min-h-24 text-sm"
+                />
+
+                <textarea
+                  value={feed.excludeKeywords || ""}
+                  onChange={(event) =>
+                    patchFeed(feed.id, { excludeKeywords: event.target.value })
+                  }
+                  placeholder="Exclude keywords"
+                  className="border rounded-lg p-3 min-h-24 text-sm"
+                />
+
+                <div className="border rounded-lg p-3">
+                  <label className="text-sm font-medium">Minimum relevance</label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={feed.minRelevance}
+                    onChange={(event) =>
+                      patchFeed(feed.id, {
+                        minRelevance: Math.min(
+                          100,
+                          Math.max(0, Number(event.target.value) || 0)
+                        ),
+                      })
+                    }
+                    className="mt-2 w-full border rounded-lg p-2"
+                  />
                   <button
                     type="button"
                     onClick={() => saveRules(feed)}
                     disabled={savingRules === feed.id}
-                    className="bg-slate-800 disabled:opacity-50 text-white px-3 py-2 rounded-lg text-sm"
+                    className="mt-2 w-full bg-slate-800 disabled:opacity-50 text-white px-3 py-2 rounded-lg text-sm"
                   >
-                    {savingRules === feed.id
-                      ? "সংরক্ষণ হচ্ছে..."
-                      : "💾 Filter Rules Save"}
+                    {savingRules === feed.id ? "সংরক্ষণ..." : "💾 Rules Save"}
                   </button>
                 </div>
               </div>
-            ))}
-          </div>
-        )}
+            </div>
+          ))}
+
+          {feeds.length === 0 && (
+            <p className="text-sm text-gray-500">কোনো RSS source যোগ করা হয়নি।</p>
+          )}
+        </div>
       </section>
 
-      {activeFeed && (
-        <section className="border rounded-xl bg-white p-5 space-y-4">
-          <div className="flex flex-wrap justify-between gap-3 items-center">
-            <div>
-              <h2 className="font-bold">
-                📰 {activeFeed.name} — Filtered RSS Items
-              </h2>
-              <p className="text-xs text-gray-500">
-                Keyword rules পার হওয়ার পর item এখানে এসেছে। AI draft-এর আগে duplicate check হবে।
-              </p>
-            </div>
-
-            <select
-              value={categoryId}
-              onChange={(e) => setCategoryId(e.target.value)}
-              className="border p-2 rounded-lg"
-            >
-              <option value="">-- Draft category --</option>
-              {categories.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {feedStats && (
-            <div className="rounded-lg bg-gray-50 border p-3 text-sm">
-              RSS item: <strong>{feedStats.total}</strong> · রাখা হয়েছে:{" "}
-              <strong>{feedStats.included}</strong> · filter-এ বাদ:{" "}
-              <strong>{feedStats.excluded}</strong> · AI threshold:{" "}
-              <strong>{activeFeed.minRelevance}/100</strong>
-            </div>
-          )}
-
+      {activeFeedId && (
+        <section className="border rounded-xl bg-white p-5">
+          <h2 className="font-bold mb-3">📰 Filtered RSS Preview</h2>
           <div className="space-y-3">
-            {items.map((item) => (
-              <article key={item.link} className="border rounded-lg p-4">
-                <h3 className="font-semibold">{item.title}</h3>
+            {items.map((item) => {
+              const feed = feeds.find((row) => row.id === activeFeedId);
+              if (!feed) return null;
+              return (
+                <article key={item.link} className="border rounded-lg p-4">
+                  <h3 className="font-semibold">{item.title}</h3>
+                  {item.description ? (
+                    <p className="text-sm text-gray-600 mt-2">{item.description}</p>
+                  ) : null}
+                  <div className="flex gap-3 mt-3">
+                    <a
+                      href={item.link}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-blue-600 underline text-sm"
+                    >
+                      Source
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() => createDraft(item, feed)}
+                      className="bg-purple-600 text-white px-3 py-2 rounded-lg text-sm"
+                    >
+                      🤖 Story → AI Draft
+                    </button>
+                  </div>
+                </article>
+              );
+            })}
 
-                {item.publishedAt && (
-                  <p className="text-xs text-gray-500 mt-1">
-                    {new Date(item.publishedAt).toLocaleString("bn-BD")}
-                  </p>
-                )}
-
-                {item.description && (
-                  <p className="text-sm text-gray-600 mt-2">
-                    {item.description}
-                  </p>
-                )}
-
-                <div className="flex gap-3 mt-3">
-                  <a
-                    href={item.link}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-blue-600 underline text-sm"
-                  >
-                    Source
-                  </a>
-                  <button
-                    type="button"
-                    onClick={() => createDraft(item)}
-                    disabled={drafting === item.link}
-                    className="bg-purple-600 disabled:opacity-50 text-white px-3 py-2 rounded-lg text-sm"
-                  >
-                    {drafting === item.link
-                      ? "🤖 Relevance + Draft..."
-                      : "🤖 AI Draft তৈরি করুন"}
-                  </button>
-                </div>
-              </article>
-            ))}
-
-            {items.length === 0 && (
+            {!items.length && (
               <p className="text-sm text-gray-500">
-                Filter-এর পরে কোনো item নেই।
+                Preview করতে কোনো source-এর RSS Preview চাপুন।
               </p>
             )}
           </div>
         </section>
       )}
+
+      <section className="border rounded-xl bg-white p-5">
+        <div className="flex flex-wrap justify-between gap-3 items-center mb-4">
+          <div>
+            <h2 className="font-bold">🧠 Story Monitor</h2>
+            <p className="text-xs text-gray-500">
+              Connect-style story queue: source → research → draft → editor review.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => load()}
+            className="border px-3 py-2 rounded-lg text-sm"
+          >
+            ↻ Refresh
+          </button>
+        </div>
+
+        <div className="space-y-3">
+          {stories.map((story) => (
+            <div key={story.id} className="border rounded-lg p-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs bg-gray-100 px-2 py-1 rounded-full">
+                  {STATUS_LABELS[story.status] || story.status}
+                </span>
+                <span className="text-xs text-gray-500">
+                  {story.sourceCount} source
+                </span>
+                {story.relevanceScore !== null && (
+                  <span className="text-xs text-purple-700">
+                    AI {story.relevanceScore}/100
+                  </span>
+                )}
+                {story.post?.facebookStatus === "PUBLISHED" && (
+                  <span className="text-xs text-blue-700">FB published</span>
+                )}
+              </div>
+
+              <h3 className="font-semibold mt-2">{story.titleHint}</h3>
+
+              {story.warning && (
+                <p className="text-xs text-orange-700 mt-1">{story.warning}</p>
+              )}
+              {story.lastError && (
+                <p className="text-xs text-red-600 mt-1">{story.lastError}</p>
+              )}
+
+              <div className="flex flex-wrap gap-3 mt-3">
+                {story.post?.id && (
+                  <Link
+                    href={"/dashboard/editor/edit/" + story.post.id}
+                    className="text-blue-600 underline text-sm"
+                  >
+                    ✏️ Editor Draft
+                  </Link>
+                )}
+                {["NEW", "REVIEW"].includes(story.status) && (
+                  <button
+                    type="button"
+                    onClick={() => processStory(story)}
+                    disabled={processingStory === story.id}
+                    className="border px-3 py-2 rounded-lg text-sm"
+                  >
+                    {processingStory === story.id
+                      ? "প্রসেস হচ্ছে..."
+                      : "🤖 Process Story"}
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+
+          {!stories.length && (
+            <p className="text-sm text-gray-500">
+              এখনো কোনো story queue হয়নি। Run Newsroom Now চাপুন।
+            </p>
+          )}
+        </div>
+      </section>
 
       {message && (
         <div className="rounded-lg border bg-white p-4 text-sm whitespace-pre-line">

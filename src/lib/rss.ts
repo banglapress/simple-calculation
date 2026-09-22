@@ -3,6 +3,7 @@ export type RSSItem = {
   link: string;
   description: string;
   publishedAt: string | null;
+  imageUrl: string | null;
 };
 
 export type RSSFilterResult = {
@@ -20,9 +21,7 @@ function decodeXml(value: string) {
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
     .replace(/&#x27;/g, "'")
-    .replace(/&#(\d+);/g, (_, code) =>
-      String.fromCharCode(Number(code))
-    )
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
     .trim();
 }
 
@@ -33,7 +32,35 @@ function tagValue(block: string, tag: string) {
   return match ? decodeXml(match[1]) : "";
 }
 
+function attributeValue(block: string, tag: string, attribute: string) {
+  const match = block.match(
+    new RegExp(
+      "<" +
+        tag +
+        "\\b[^>]*\\b" +
+        attribute +
+        "=[\"']([^\"']+)[\"'][^>]*>",
+      "i"
+    )
+  );
+  return match ? decodeXml(match[1]) : "";
+}
+
+function imageValue(block: string) {
+  return (
+    attributeValue(block, "media:content", "url") ||
+    attributeValue(block, "media:thumbnail", "url") ||
+    attributeValue(block, "enclosure", "url") ||
+    null
+  );
+}
+
 function atomLink(block: string) {
+  const alternate = block.match(
+    /<link\b[^>]*rel=["']?alternate["']?[^>]*href=["']([^"']+)["'][^>]*\/?>(?:\s*)/i
+  );
+  if (alternate) return decodeXml(alternate[1]);
+
   const href = block.match(
     /<link[^>]+href=["']([^"']+?)["'][^>]*\/>/i
   );
@@ -70,14 +97,13 @@ export function filterRSSItems(
       .join(" ")
       .toLocaleLowerCase("bn-BD");
 
-    if (excludes.some((keyword) => haystack.includes(keyword))) {
+    if (excludes.some((keyword) => haystack.includes(keyword))) return false;
+    if (
+      includes.length &&
+      !includes.some((keyword) => haystack.includes(keyword))
+    ) {
       return false;
     }
-
-    if (includes.length && !includes.some((keyword) => haystack.includes(keyword))) {
-      return false;
-    }
-
     return true;
   });
 
@@ -132,6 +158,7 @@ export async function fetchRSSFeed(url: string): Promise<RSSItem[]> {
           parsedDate && !Number.isNaN(parsedDate.getTime())
             ? parsedDate.toISOString()
             : null,
+        imageUrl: imageValue(block),
       });
     }
   }
@@ -160,6 +187,7 @@ export async function fetchRSSFeed(url: string): Promise<RSSItem[]> {
           parsedDate && !Number.isNaN(parsedDate.getTime())
             ? parsedDate.toISOString()
             : null,
+        imageUrl: imageValue(block),
       });
     }
   }

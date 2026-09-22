@@ -40,6 +40,24 @@ interface Post {
   galleryImages?: string | null;
   placement: string;
   isBreaking?: boolean;
+  facebookCaption?: string | null;
+  facebookAutoPost?: boolean;
+  facebookStatus?: string;
+  facebookError?: string | null;
+  deskStory?: {
+    id: string;
+    titleHint: string;
+    status: string;
+    sourceCount: number;
+    relevanceScore: number | null;
+    relevanceReason: string | null;
+    warning: string | null;
+    sources: Array<{
+      title: string;
+      url: string;
+      feed?: { name: string } | null;
+    }>;
+  } | null;
   categories?: Category[];
   subcategories?: Subcategory[];
 }
@@ -172,6 +190,8 @@ export default function EditorPostForm({ postId }: { postId: string }) {
         placement: post.placement,
         categoryIds: selectedCategories,
         subcategoryIds: selectedSubcategories,
+        facebookCaption: post.facebookCaption || "",
+        facebookAutoPost: Boolean(post.facebookAutoPost),
       });
 
       setGalleryImages(uploadedGallery);
@@ -214,6 +234,101 @@ export default function EditorPostForm({ postId }: { postId: string }) {
         className="w-full border p-3 rounded-lg"
         placeholder="ট্যাগ (কমা দিয়ে)"
       />
+
+      {post.deskStory && (
+        <div className="border rounded-xl p-4 bg-purple-50 space-y-3">
+          <div>
+            <p className="font-semibold">🤖 AI Newsroom Research</p>
+            <p className="text-xs text-gray-600 mt-1">
+              Story: {post.deskStory.titleHint} · {post.deskStory.sourceCount} source · Relevance{" "}
+              {post.deskStory.relevanceScore ?? "—"}/100
+            </p>
+          </div>
+
+          {post.deskStory.warning && (
+            <p className="text-sm text-orange-700">{post.deskStory.warning}</p>
+          )}
+
+          {post.deskStory.sources?.length > 0 && (
+            <div className="space-y-1 text-xs">
+              {post.deskStory.sources.map((source) => (
+                <a
+                  key={source.url}
+                  href={source.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="block truncate text-blue-700 underline"
+                >
+                  {(source.feed?.name ? source.feed.name + " — " : "") +
+                    (source.title || source.url)}
+                </a>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="border rounded-xl p-4 bg-blue-50 space-y-3">
+        <div>
+          <p className="font-semibold">📘 Facebook Auto Post</p>
+          <p className="text-xs text-gray-600 mt-1">
+            পোস্ট Published করলে এই caption ও feature image দিয়ে Facebook Page-এ পোস্ট করার চেষ্টা করবে।
+          </p>
+        </div>
+
+        <textarea
+          value={post.facebookCaption || ""}
+          onChange={(e) =>
+            setPost({ ...post, facebookCaption: e.target.value })
+          }
+          className="w-full min-h-28 border p-3 rounded-lg bg-white"
+          placeholder="Facebook caption"
+        />
+
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={async () => {
+              try {
+                const response = await axios.post(
+                  "/api/editor/posts/" + postId + "/facebook-caption"
+                );
+                setPost({ ...post, facebookCaption: response.data.caption });
+              } catch (error) {
+                setMessage(
+                  "❌ " +
+                    (axios.isAxiosError(error)
+                      ? error.response?.data?.message ||
+                        "Facebook caption তৈরি করা যায়নি"
+                      : "Facebook caption তৈরি করা যায়নি")
+                );
+              }
+            }}
+            className="border bg-white px-3 py-2 rounded-lg text-sm"
+          >
+            ✨ Caption তৈরি করুন
+          </button>
+
+          <label className="inline-flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={Boolean(post.facebookAutoPost)}
+              onChange={(e) =>
+                setPost({ ...post, facebookAutoPost: e.target.checked })
+              }
+            />
+            Publish হলে Facebook-এ auto-post
+          </label>
+
+          <span className="text-xs text-gray-600">
+            Status: {post.facebookStatus || "NONE"}
+          </span>
+        </div>
+
+        {post.facebookError && (
+          <p className="text-xs text-red-600">{post.facebookError}</p>
+        )}
+      </div>
 
       <select
         value={post.authorId || ""}

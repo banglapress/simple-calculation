@@ -1,0 +1,21 @@
+name: KhelaTV AI Newsroom
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+
+jobs:
+  newsroom:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run KhelaTV AI Newsroom
+        env:
+          NEWSROOM_CRON_SECRET: ${{ secrets.NEWSROOM_CRON_SECRET }}
+        run: |
+          set -e
+          curl --fail-with-body --max-time 180 \
+            -X POST \
+            -H "Authorization: Bearer ${NEWSROOM_CRON_SECRET}" \
+            -H "Content-Type: application/json" \
+            https://www.khelatv.com/api/cron/ai-newsroom

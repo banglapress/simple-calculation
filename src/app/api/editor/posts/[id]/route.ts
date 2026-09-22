@@ -1,34 +1,45 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
 import { prisma } from "@/lib/prisma";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { publishPostToFacebook } from "@/lib/post-publishing";
+
+function allowed(role?: string | null) {
+  return role === "EDITOR" || role === "ADMIN";
+}
 
 function makeExcerpt(content: string) {
-  return content
-    .replace(/<[^>]+>/g, "")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 180);
+  return content.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim().slice(0, 180);
 }
 
 function normalizeGallery(value: unknown) {
   if (!Array.isArray(value)) return [];
-  return value
-    .filter((item) => typeof item === "string")
-    .map((item) => item.trim())
-    .filter(Boolean)
-    .slice(0, 20);
+  return value.filter((item) => typeof item === "string")
+    .map((item) => item.trim()).filter(Boolean).slice(0, 20);
 }
 
 export async function GET(
   req: NextRequest,
   context: { params: { id: string } }
 ) {
-  const id = context.params.id;
+  const session = await getServerSession(authOptions);
+  if (!allowed(session?.user?.role)) {
+    return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+  }
 
   const post = await prisma.post.findUnique({
-    where: { id },
+    where: { id: context.params.id },
     include: {
       categories: true,
       subcategories: true,
+      deskStory: {
+        include: {
+          sources: {
+            include: { feed: { select: { name: true } } },
+            orderBy: { createdAt: "asc" },
+          },
+        },
+      },
     },
   });
 
@@ -39,8 +50,13 @@ export async function PUT(
   req: NextRequest,
   context: { params: { id: string } }
 ) {
-  const id = context.params.id;
+  const session = await getServerSession(authOptions);
+  if (!allowed(session?.user?.role)) {
+    return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+  }
 
+  const body = await req.json();
+  const id = context.params.id;
   const {
     title,
     content,
@@ -53,7 +69,18 @@ export async function PUT(
     authorId,
     categoryIds,
     subcategoryIds,
-  } = await req.json();
+    facebookCaption,
+    facebookAutoPost,
+  } = body;
+
+  const normalizedStatus =
+    status === "PUBLISHED" ? "PUBLISHED" :
+    status === "PENDING" ? "PENDING" : "DRAFT";
+
+  const shouldAutoPost =
+    typeof facebookAutoPost === "boolean"
+      ? facebookAutoPost
+      : undefined;
 
   const updated = await prisma.post.update({
     where: { id },
@@ -62,26 +89,47 @@ export async function PUT(
       content,
       excerpt: makeExcerpt(content ?? ""),
       tags,
-      status,
+      status: normalizedStatus,
       placement,
       featureImage,
       galleryImages: JSON.stringify(normalizeGallery(galleryImages)),
       isBreaking,
-      author: authorId
-        ? { connect: { id: authorId } }
-        : undefined,
+      facebookCaption:
+        typeof facebookCaption === "string" ? facebookCaption : undefined,
+      facebookAutoPost: shouldAutoPost,
+      facebookStatus:
+        normalizedStatus !== "PUBLISHED"
+          ? shouldAutoPost
+            ? featureImage?.trim()
+              ? "READY"
+              : "NONE"
+            : "NONE"
+          : undefined,
+      facebookError:
+        normalizedStatus !== "PUBLISHED" ? null : undefined,
+      author: authorId ? { connect: { id: authorId } } : undefined,
       categories: {
         set: Array.isArray(categoryIds)
-          ? categoryIds.map((id: number) => ({ id }))
+          ? categoryIds.map((categoryId: number) => ({ id: categoryId }))
           : [],
       },
       subcategories: {
         set: Array.isArray(subcategoryIds)
-          ? subcategoryIds.map((id: number) => ({ id }))
+          ? subcategoryIds.map((subcategoryId: number) => ({ id: subcategoryId }))
           : [],
       },
     },
   });
 
-  return NextResponse.json(updated);
+  const facebook =
+    normalizedStatus === "PUBLISHED"
+      ? await publishPostToFacebook(id)
+      : null;
+
+  const final = await prisma.post.findUnique({ where: { id } });
+
+  return NextResponse.json({
+    post: final || updated,
+    facebook,
+  });
 }

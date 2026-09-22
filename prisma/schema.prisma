@@ -30,6 +30,23 @@ enum Placement {
   TRENDING
 }
 
+enum DeskStoryStatus {
+  NEW
+  RESEARCHING
+  DRAFT
+  REVIEW
+  APPROVED
+  PUBLISHED
+  REJECTED
+}
+
+enum FacebookStatus {
+  NONE
+  READY
+  PUBLISHED
+  FAILED
+}
+
 model User {
   id            String   @id @default(cuid())
   name          String?
@@ -44,38 +61,48 @@ model User {
 }
 
 model Post {
-  id             String         @id @default(cuid())
-  title          String
-  content        String         @db.Text
-  excerpt        String?        @db.Text
-  galleryImages  String?        @db.Text
-  featureImage   String
-  sourceUrl      String?        @db.Text
-  tags           String?
-  status         PostStatus     @default(DRAFT)
-  isBreaking     Boolean        @default(false)
-  placement      Placement      @default(NONE)
-  author         User?          @relation(fields: [authorId], references: [id])
-  authorId       String?
-  categories     Category[]     @relation("PostCategories")
-  subcategories  Subcategory[]  @relation("PostSubcategories")
-  liveScores     LiveScore[]
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
+  id                 String         @id @default(cuid())
+  title              String
+  content            String         @db.Text
+  excerpt            String?        @db.Text
+  galleryImages      String?        @db.Text
+  featureImage       String
+  sourceUrl          String?        @db.Text
+  tags               String?
+  status             PostStatus     @default(DRAFT)
+  isBreaking         Boolean        @default(false)
+  placement          Placement      @default(NONE)
+  facebookCaption    String?        @db.Text
+  facebookAutoPost   Boolean        @default(false)
+  facebookStatus     FacebookStatus @default(NONE)
+  facebookPostId     String?
+  facebookPublishedAt DateTime?
+  facebookError      String?        @db.Text
+  author             User?          @relation(fields: [authorId], references: [id])
+  authorId           String?
+  categories         Category[]     @relation("PostCategories")
+  subcategories      Subcategory[]  @relation("PostSubcategories")
+  deskStory          DeskStory?
+  liveScores         LiveScore[]
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
 
   @@index([status, updatedAt])
   @@index([status, placement, updatedAt])
   @@index([status, isBreaking, updatedAt])
   @@index([authorId])
   @@index([sourceUrl])
+  @@index([facebookStatus, status, updatedAt])
 }
 
 model Category {
-  id             Int            @id @default(autoincrement())
+  id             Int           @id @default(autoincrement())
   name           String
-  slug           String         @unique
+  slug           String        @unique
   subcategories  Subcategory[]
-  posts          Post[]         @relation("PostCategories")
+  posts          Post[]        @relation("PostCategories")
+  newsFeeds      NewsFeed[]
+  deskStories    DeskStory[]
 }
 
 model Subcategory {
@@ -84,19 +111,90 @@ model Subcategory {
   slug       String   @unique
   category   Category @relation(fields: [categoryId], references: [id])
   categoryId Int
-  posts      Post[]   @relation("PostSubcategories")
+  posts      Post[]  @relation("PostSubcategories")
 }
 
 model NewsFeed {
-  id              Int      @id @default(autoincrement())
+  id              Int              @id @default(autoincrement())
   name            String
-  url             String   @unique
-  enabled         Boolean  @default(true)
-  includeKeywords String?  @db.Text
-  excludeKeywords String?  @db.Text
-  minRelevance    Int      @default(60)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  url             String           @unique
+  enabled         Boolean          @default(true)
+  includeKeywords String?          @db.Text
+  excludeKeywords String?          @db.Text
+  minRelevance    Int              @default(60)
+  categoryId      Int?
+  category        Category?        @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  storySources    DeskStorySource[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+}
+
+model DeskStory {
+  id                    String           @id @default(cuid())
+  titleHint             String
+  status                DeskStoryStatus  @default(NEW)
+  categoryId            Int?
+  category              Category?        @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  postId                String?          @unique
+  post                  Post?            @relation(fields: [postId], references: [id], onDelete: SetNull)
+  sourceCount           Int              @default(0)
+  relevanceScore        Int?
+  relevanceReason       String?          @db.Text
+  researchStatus        String?
+  researchPacket        Json?
+  articleStatus         String?
+  articleWarnings       Json?
+  warning               String?          @db.Text
+  lastError             String?          @db.Text
+  autoAttempts          Int              @default(0)
+  autoProcessingStartedAt DateTime?
+  autoNextAttemptAt     DateTime?
+  autoFailureStage      String?
+  createdAt             DateTime         @default(now())
+  updatedAt             DateTime         @updatedAt
+  sources               DeskStorySource[]
+  jobs                  DeskJob[]
+
+  @@index([status, updatedAt])
+  @@index([status, autoNextAttemptAt, updatedAt])
+  @@index([categoryId, status, updatedAt])
+}
+
+model DeskStorySource {
+  id          String     @id @default(cuid())
+  storyId     String
+  story       DeskStory  @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  feedId      Int?
+  feed        NewsFeed?  @relation(fields: [feedId], references: [id], onDelete: SetNull)
+  url         String
+  canonicalUrl String?
+  title       String
+  excerpt     String?    @db.Text
+  rawText     String?    @db.Text
+  imageUrl    String?
+  publishedAt DateTime?
+  origin      String     @default("rss")
+  trusted     Boolean    @default(false)
+  createdAt   DateTime   @default(now())
+
+  @@unique([storyId, url])
+  @@index([url])
+  @@index([feedId, createdAt])
+}
+
+model DeskJob {
+  id         String    @id @default(cuid())
+  storyId    String?
+  story      DeskStory? @relation(fields: [storyId], references: [id], onDelete: SetNull)
+  stage      String
+  status     String
+  payload    Json?
+  error      String?   @db.Text
+  createdAt  DateTime  @default(now())
+  finishedAt DateTime?
+
+  @@index([stage, createdAt])
+  @@index([storyId, createdAt])
 }
 
 model LiveScore {
