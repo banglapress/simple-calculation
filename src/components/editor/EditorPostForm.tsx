@@ -75,6 +75,150 @@ function parseGallery(value?: string | null) {
   }
 }
 
+async function loadCardImage(url: string) {
+  const image = new window.Image();
+  image.crossOrigin = "anonymous";
+  image.src = url + (url.includes("?") ? "&" : "?") + "cb=" + Date.now();
+
+  await new Promise<void>((resolve, reject) => {
+    image.onload = () => resolve();
+    image.onerror = () => reject(new Error("Feature image browser-এ load হয়নি।"));
+  });
+
+  return image;
+}
+
+async function ensureCardFont() {
+  try {
+    const font = new FontFace(
+      "KhelaTVNotoSerif",
+      "url(/fonts/NotoSerifBengali.ttf)"
+    );
+    await font.load();
+    document.fonts.add(font);
+  } catch {
+    // Browser can fall back to a Bengali-capable system font.
+  }
+}
+
+function wrapCardTitle(
+  ctx: CanvasRenderingContext2D,
+  title: string,
+  maxWidth: number,
+  maxLines = 3
+) {
+  const words = title.replace(/\s+/g, " ").trim().split(" ");
+  const lines: string[] = [];
+  let current = "";
+
+  for (const word of words) {
+    const next = current ? current + " " + word : word;
+    if (ctx.measureText(next).width > maxWidth && current) {
+      lines.push(current);
+      current = word;
+      if (lines.length === maxLines) break;
+    } else {
+      current = next;
+    }
+  }
+
+  if (lines.length < maxLines && current) lines.push(current);
+
+  if (lines.length === maxLines && words.length > 0) {
+    const last = lines[maxLines - 1] || "";
+    if (last && !title.includes(last + " ")) {
+      lines[maxLines - 1] = last.slice(0, Math.max(0, last.length - 1)) + "…";
+    }
+  }
+
+  return lines;
+}
+
+async function buildFacebookCardFile(post: Post) {
+  if (!post.featureImage?.trim()) {
+    throw new Error("আগে Feature Image যোগ করুন।");
+  }
+
+  await ensureCardFont();
+  const image = await loadCardImage(post.featureImage);
+
+  const canvas = document.createElement("canvas");
+  canvas.width = 1200;
+  canvas.height = 630;
+
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Canvas পাওয়া যায়নি।");
+
+  const scale = Math.max(1200 / image.width, 630 / image.height);
+  const width = image.width * scale;
+  const height = image.height * scale;
+  const x = (1200 - width) / 2;
+  const y = (630 - height) / 2;
+
+  ctx.drawImage(image, x, y, width, height);
+
+  const gradient = ctx.createLinearGradient(0, 0, 0, 630);
+  gradient.addColorStop(0, "rgba(0,0,0,0.10)");
+  gradient.addColorStop(0.42, "rgba(0,0,0,0.24)");
+  gradient.addColorStop(1, "rgba(0,0,0,0.90)");
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, 1200, 630);
+
+  ctx.fillStyle = "#ffffff";
+  ctx.beginPath();
+  ctx.roundRect(44, 34, 150, 48, 24);
+  ctx.fill();
+
+  ctx.fillStyle = "#111827";
+  ctx.font = '700 25px "KhelaTVNotoSerif", "Noto Serif Bengali", sans-serif';
+  ctx.fillText("KhelaTV", 64, 66);
+
+  const category =
+    post.categories?.[0]?.name ||
+    "খেলা";
+
+  ctx.fillStyle = "rgba(0,0,0,0.65)";
+  const categoryWidth = Math.min(
+    250,
+    Math.max(110, ctx.measureText(category).width + 34)
+  );
+  ctx.beginPath();
+  ctx.roundRect(210, 34, categoryWidth, 48, 24);
+  ctx.fill();
+
+  ctx.fillStyle = "#ffffff";
+  ctx.font = '600 22px "KhelaTVNotoSerif", "Noto Serif Bengali", sans-serif';
+  ctx.fillText(category, 227, 65);
+
+  ctx.fillStyle = "#ffffff";
+  ctx.font = '700 48px "KhelaTVNotoSerif", "Noto Serif Bengali", sans-serif';
+
+  const lines = wrapCardTitle(ctx, post.title, 1080, 3);
+  const lineHeight = 58;
+  const startY = 630 - 58 - lineHeight * (lines.length - 1) - 34;
+
+  ctx.shadowColor = "rgba(0,0,0,0.55)";
+  ctx.shadowBlur = 10;
+  lines.forEach((line, index) => {
+    ctx.fillText(line, 48, startY + index * lineHeight);
+  });
+  ctx.shadowBlur = 0;
+
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(48, 630 - 38, 110, 5);
+
+  const blob = await new Promise<Blob>((resolve, reject) =>
+    canvas.toBlob(
+      (value) =>
+        value ? resolve(value) : reject(new Error("PNG তৈরি করা যায়নি")),
+      "image/png",
+      0.94
+    )
+  );
+
+  return new File([blob], "facebook-card.png", { type: "image/png" });
+}
+
 export default function EditorPostForm({ postId }: { postId: string }) {
   const [loading, setLoading] = useState(true);
   const [post, setPost] = useState<Post | null>(null);
@@ -315,25 +459,66 @@ export default function EditorPostForm({ postId }: { postId: string }) {
               <button
                 type="button"
                 onClick={async () => {
+                  if (!post) return;
+
                   try {
                     setMessage("⏳ Facebook photo card তৈরি হচ্ছে...");
-                    const response = await axios.post(
-                      "/api/editor/posts/" + postId + "/facebook-card"
+
+                    const sourceResponse = await axios.post(
+                      "/api/editor/posts/" + postId + "/facebook-source"
                     );
-                    setPost({
+
+                    const preparedFeatureImage = sourceResponse.data.featureImage;
+
+                    if (preparedFeatureImage !== post.featureImage) {
+                      setPost({
+                        ...post,
+                        featureImage: preparedFeatureImage,
+                      });
+                    }
+
+                    const cardPost = {
                       ...post,
-                      facebookImage: response.data.facebookImage,
-                      facebookStatus: response.data.facebookStatus,
+                      featureImage: preparedFeatureImage,
+                    };
+
+                    const file = await buildFacebookCardFile(cardPost);
+                    const formData = new FormData();
+                    formData.append("file", file);
+
+                    const uploadResponse = await fetch("/api/upload", {
+                      method: "POST",
+                      body: formData,
+                    });
+
+                    if (!uploadResponse.ok) {
+                      throw new Error("Facebook card upload failed");
+                    }
+
+                    const uploadData = await uploadResponse.json();
+
+                    const saveResponse = await axios.post(
+                      "/api/editor/posts/" + postId + "/facebook-image",
+                      { facebookImage: uploadData.url }
+                    );
+
+                    setPost({
+                      ...cardPost,
+                      facebookImage: saveResponse.data.facebookImage,
+                      facebookStatus: "READY",
                       facebookError: null,
                     });
-                    setMessage("✅ Facebook photo card তৈরি হয়েছে");
+
+                    setMessage("✅ Facebook photo card তৈরি ও সংরক্ষণ হয়েছে");
                   } catch (error) {
                     setMessage(
                       "❌ " +
                         (axios.isAxiosError(error)
                           ? error.response?.data?.message ||
                             "Facebook photo card তৈরি করা যায়নি"
-                          : "Facebook photo card তৈরি করা যায়নি")
+                          : error instanceof Error
+                            ? error.message
+                            : "Facebook photo card তৈরি করা যায়নি")
                     );
                   }
                 }}
