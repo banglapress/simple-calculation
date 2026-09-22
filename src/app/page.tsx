@@ -13,25 +13,18 @@ import {
 export const revalidate = 60;
 
 export default async function HomePage() {
-  const [
-    placementPosts,
-    footballPosts,
-    cricketPosts,
-    hockeyPosts,
-    athleticsPosts,
-    otherSportsPosts,
-    sportsTechPosts,
-    sportsCulturePosts,
-  ] = await Promise.all([
+  const [placementPosts, categoryPosts] = await Promise.all([
     getHomePlacementPosts(),
-    getHomeCategoryPosts("football"),
-    getHomeCategoryPosts("cricket"),
-    getHomeCategoryPosts("hockey"),
-    getHomeCategoryPosts("athletics"),
-    getHomeCategoryPosts("othersports"),
-    getHomeCategoryPosts("sports-tech"),
-    getHomeCategoryPosts("sports-culture"),
+    getHomeCategoryPosts(),
   ]);
+
+  const footballPosts = categoryPosts.football;
+  const cricketPosts = categoryPosts.cricket;
+  const hockeyPosts = categoryPosts.hockey;
+  const athleticsPosts = categoryPosts.athletics;
+  const otherSportsPosts = categoryPosts.othersports;
+  const sportsTechPosts = categoryPosts["sports-tech"];
+  const sportsCulturePosts = categoryPosts["sports-culture"];
 
   const leadPost =
     placementPosts.find((post) => post.placement === "LEAD") || null;
