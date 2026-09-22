@@ -1,7 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import { buildFacebookCaption, publishFacebookPhoto } from "@/lib/facebook";
 
-export async function publishPostToFacebook(postId: string) {
+export async function publishPostToFacebook(
+  postId: string,
+  options: { force?: boolean } = {}
+) {
   const post = await prisma.post.findUnique({
     where: { id: postId },
     include: {
@@ -15,7 +18,7 @@ export async function publishPostToFacebook(postId: string) {
   if (post.status !== "PUBLISHED") {
     return { attempted: false, published: false, reason: "not_published" };
   }
-  if (!post.facebookAutoPost) {
+  if (!post.facebookAutoPost && !options.force) {
     return { attempted: false, published: false, reason: "disabled" };
   }
   if (post.facebookStatus === "PUBLISHED" && post.facebookPostId) {
@@ -63,7 +66,7 @@ export async function publishPostToFacebook(postId: string) {
 
   try {
     const result = await publishFacebookPhoto({
-      imageUrl: post.featureImage,
+      imageUrl: facebookImage,
       caption,
     });
 
