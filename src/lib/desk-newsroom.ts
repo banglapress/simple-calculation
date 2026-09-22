@@ -296,7 +296,7 @@ async function processStory(storyId: string) {
 
     const article = await generateSportsArticle({
       title: story.titleHint,
-      categoryName: category.name,
+      categoryName,
       sourceText,
       sourceUrls: story.sources.slice(0, 3).map((source) => source.url),
     });
