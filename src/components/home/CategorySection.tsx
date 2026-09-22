@@ -12,7 +12,7 @@ interface CategoryPost {
   id: string;
   title: string;
   featureImage: string;
-  content?: string;
+  excerpt?: string | null;
   categories: { slug: string }[];
   subcategories: { slug: string }[];
 }
@@ -31,7 +31,7 @@ export default function CategorySection({
   sidebarPost,
 }: Props) {
   return (
-    <div className="grid md:grid-cols-12 gap-6 bg-white p-4 rounded-xl shadow">
+    <section className="grid md:grid-cols-12 gap-6 bg-white p-4 rounded-xl shadow">
       <div className="md:col-span-9">
         <Link href={`/${slug}`}>
           <h2 className="text-3xl font-[Cholontika] text-red-600 mb-4">
@@ -64,9 +64,9 @@ export default function CategorySection({
                 <h5 className="text-xl font-[Cholontika] mb-2 text-gray-700">
                   {post.title}
                 </h5>
-                {post.content && (
+                {post.excerpt && (
                   <p className="text-sm text-gray-700 font-[NotoSerifBengali]">
-                    {post.content.replace(/<[^>]+>/g, "").slice(0, 100)}...
+                    {post.excerpt}...
                   </p>
                 )}
               </Link>
@@ -100,6 +100,6 @@ export default function CategorySection({
           </Link>
         </div>
       )}
-    </div>
+    </section>
   );
 }
