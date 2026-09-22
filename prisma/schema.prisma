@@ -9,8 +9,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ===================== ENUMS =====================
-
 enum Role {
   READER
   REPORTER
@@ -32,8 +30,6 @@ enum Placement {
   TRENDING
 }
 
-// ===================== MODELS =====================
-
 model User {
   id            String   @id @default(cuid())
   name          String?
@@ -51,6 +47,7 @@ model Post {
   id             String         @id @default(cuid())
   title          String
   content        String         @db.Text
+  excerpt        String?        @db.Text
   featureImage   String
   tags           String?
   status         PostStatus     @default(DRAFT)
