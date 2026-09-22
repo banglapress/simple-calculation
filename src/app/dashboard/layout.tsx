@@ -21,20 +21,48 @@ export default async function DashboardLayout({
           <h2 className="font-bold mb-4">ড্যাশবোর্ড</h2>
           <ul className="space-y-2 text-sm">
             {session.user.role === "REPORTER" && (
-              <li><Link href="/dashboard/reporter">Reporter Panel</Link></li>
+              <>
+                <li>
+                  <Link href="/dashboard/reporter">Reporter Panel</Link>
+                </li>
+                <li>
+                  <Link
+                    href="/dashboard/reporter/new"
+                    className="font-medium text-blue-700"
+                  >
+                    ➕ নতুন পোস্ট
+                  </Link>
+                </li>
+              </>
             )}
+
             {session.user.role === "EDITOR" && (
-              <li><Link href="/dashboard/editor">Editor Panel</Link></li>
+              <li>
+                <Link href="/dashboard/editor">Editor Panel</Link>
+              </li>
             )}
+
             {session.user.role === "ADMIN" && (
               <>
-                <li><Link href="/dashboard/admin">Admin Panel</Link></li>
-                <li><Link href="/dashboard/editor">Editor Panel</Link></li>
-                <li><Link href="/dashboard/reporter">Reporter Panel</Link></li>
+                <li>
+                  <Link href="/dashboard/admin">Admin Panel</Link>
+                </li>
+                <li>
+                  <Link href="/dashboard/admin/categories">
+                    📂 ক্যাটাগরি ম্যানেজার
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/dashboard/editor">Editor Panel</Link>
+                </li>
+                <li>
+                  <Link href="/dashboard/reporter">Reporter Panel</Link>
+                </li>
               </>
             )}
           </ul>
         </aside>
+
         <main className="flex-1 p-6">{children}</main>
       </div>
     </Provider>
