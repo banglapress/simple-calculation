@@ -47,6 +47,35 @@ function absoluteImageUrl(value: string | null | undefined) {
   return base + (image.startsWith("/") ? image : "/" + image);
 }
 
+async function loadImageDataUrl(url: string) {
+  try {
+    const response = await fetch(url, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (compatible; KhelaTV-Facebook-Card/1.0; +https://www.khelatv.com)",
+        Accept: "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+      },
+      cache: "force-cache",
+    });
+
+    if (!response.ok) return "";
+
+    const contentType = response.headers.get("content-type") || "image/jpeg";
+    const buffer = await response.arrayBuffer();
+
+    if (buffer.byteLength > 7 * 1024 * 1024) return "";
+
+    return (
+      "data:" +
+      contentType.split(";")[0] +
+      ";base64," +
+      Buffer.from(buffer).toString("base64")
+    );
+  } catch {
+    return "";
+  }
+}
+
 export async function GET(
   context: { params: Promise<{ id: string }> }
 ) {
@@ -86,7 +115,10 @@ export async function GET(
   }
 
   const font = await getBanglaFont();
-  const imageUrl = absoluteImageUrl(post.featureImage);
+  const sourceImageUrl = absoluteImageUrl(post.featureImage);
+  const imageUrl = sourceImageUrl
+    ? await loadImageDataUrl(sourceImageUrl)
+    : "";
   const categoryName = post.categories[0]?.name || "খেলা";
   const title = post.title.trim().slice(0, 180);
 
