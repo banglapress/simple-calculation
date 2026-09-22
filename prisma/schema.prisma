@@ -42,7 +42,7 @@ model User {
   password      String?
   image         String?
   role          Role     @default(READER)
-  posts         Post[]   // One-to-many relation with Post
+  posts         Post[]
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 }
@@ -60,9 +60,14 @@ model Post {
   authorId       String?
   categories     Category[]     @relation("PostCategories")
   subcategories  Subcategory[]  @relation("PostSubcategories")
-  liveScores     LiveScore[]    // One-to-many relation with LiveScore
+  liveScores     LiveScore[]
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
+
+  @@index([status, updatedAt])
+  @@index([status, placement, updatedAt])
+  @@index([status, isBreaking, updatedAt])
+  @@index([authorId])
 }
 
 model Category {
@@ -95,4 +100,6 @@ model LiveScore {
   commentaryId  String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+
+  @@index([updatedAt])
 }

@@ -1,4 +1,3 @@
-// src/app/[category]/[...slug]/page.tsx
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import { Metadata } from "next";
@@ -6,30 +5,16 @@ import Link from "next/link";
 import Image from "next/image";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
-import { Prisma } from "@prisma/client";
+import {
+  getPlacementSidebarPosts,
+  getPublicPostById,
+} from "@/lib/public-data";
 
-// ISR cache
 export const revalidate = 60;
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://www.khelatv.com";
+const SITE_URL =
+  process.env.NEXT_PUBLIC_SITE_URL || "https://www.khelatv.com";
 
-// Types
-type PostWithRelations = Prisma.PostGetPayload<{
-  include: {
-    author: true;
-    categories: true;
-    subcategories: true;
-  };
-}>;
-
-// Transform to serializable
-const transformPost = (post: PostWithRelations) => ({
-  ...post,
-  createdAt: post.createdAt.toISOString(),
-  updatedAt: post.updatedAt.toISOString(),
-});
-
-// ✅ Dynamic Metadata
 export async function generateMetadata({
   params,
 }: {
@@ -38,26 +23,19 @@ export async function generateMetadata({
   const postId = params.slug.at(-1);
   if (!postId) return {};
 
-  const post = await prisma.post.findUnique({
-    where: { id: postId },
-    select: {
-      id: true,
-      title: true,
-      content: true,
-      status: true,
-      featureImage: true,
-      categories: { select: { slug: true } },
-      subcategories: { select: { slug: true } },
-    },
-  });
+  const post = await getPublicPostById(postId);
 
   if (!post || post.status !== "PUBLISHED") return {};
 
   const categorySlug = post.categories?.[0]?.slug || "category";
   const subcategorySlug = post.subcategories?.[0]?.slug;
-  const fullUrl = `${SITE_URL}/${categorySlug}${subcategorySlug ? `/${subcategorySlug}` : ""}/${post.id}`;
+  const fullUrl = `${SITE_URL}/${categorySlug}${
+    subcategorySlug ? `/${subcategorySlug}` : ""
+  }/${post.id}`;
 
-  const plainText = post.content.replace(/<[^>]+>/g, "").replace(/\s+/g, " ");
+  const plainText = post.content
+    .replace(/<[^>]+>/g, "")
+    .replace(/\s+/g, " ");
   const shortDescription = plainText.slice(0, 160).trim();
 
   return {
@@ -68,7 +46,14 @@ export async function generateMetadata({
       description: shortDescription || post.title,
       type: "article",
       url: fullUrl,
-      images: [{ url: post.featureImage, width: 1200, height: 630, alt: post.title }],
+      images: [
+        {
+          url: post.featureImage,
+          width: 1200,
+          height: 630,
+          alt: post.title,
+        },
+      ],
     },
     twitter: {
       card: "summary_large_image",
@@ -80,91 +65,111 @@ export async function generateMetadata({
   };
 }
 
-// ✅ Main Component
-export default async function PostPage({ params }: { params: { category: string; slug: string[] } }) {
+export default async function PostPage({
+  params,
+}: {
+  params: { category: string; slug: string[] };
+}) {
   const postId = params.slug.at(-1);
   if (!postId) return notFound();
 
-  const post = await prisma.post.findUnique({
-    where: { id: postId },
-    include: {
-      author: true,
-      categories: true,
-      subcategories: true,
-    },
-  });
+  const post = await getPublicPostById(postId);
 
   if (!post || post.status !== "PUBLISHED") return notFound();
-  const transformedPost = transformPost(post);
 
   const categoryId = post.categories[0]?.id || 0;
   const categorySlug = post.categories[0]?.slug || "category";
   const subcategorySlug = post.subcategories[0]?.slug || null;
-  const fullUrl = `${SITE_URL}/${categorySlug}${subcategorySlug ? `/${subcategorySlug}` : ""}/${post.id}`;
+  const fullUrl = `${SITE_URL}/${categorySlug}${
+    subcategorySlug ? `/${subcategorySlug}` : ""
+  }/${post.id}`;
 
-  // Parallel queries (only needed fields for sidebar)
-  const [recent, editorsPick, trending] = await Promise.all([
+  const [recent, placementPosts] = await Promise.all([
     prisma.post.findMany({
-      where: { status: "PUBLISHED", categories: { some: { id: categoryId } }, id: { not: post.id } },
-      select: { id: true, title: true, featureImage: true, categories: { select: { slug: true } }, subcategories: { select: { slug: true } } },
+      where: {
+        status: "PUBLISHED",
+        categories: { some: { id: categoryId } },
+        id: { not: post.id },
+      },
+      orderBy: { updatedAt: "desc" },
       take: 6,
+      select: {
+        id: true,
+        title: true,
+        featureImage: true,
+        categories: { select: { slug: true } },
+        subcategories: { select: { slug: true } },
+      },
     }),
-    prisma.post.findMany({
-      where: { status: "PUBLISHED", placement: "EDITORS_PICK" },
-      select: { id: true, title: true, featureImage: true, categories: { select: { slug: true } }, subcategories: { select: { slug: true } } },
-      take: 6,
-    }),
-    prisma.post.findMany({
-      where: { status: "PUBLISHED", placement: "TRENDING" },
-      select: { id: true, title: true, featureImage: true, categories: { select: { slug: true } }, subcategories: { select: { slug: true } } },
-      take: 6,
-    }),
+    getPlacementSidebarPosts(),
   ]);
+
+  const editorsPick = placementPosts
+    .filter((item) => item.placement === "EDITORS_PICK")
+    .slice(0, 6);
+
+  const trending = placementPosts
+    .filter((item) => item.placement === "TRENDING")
+    .slice(0, 6);
 
   return (
     <>
       <Navbar />
 
       <main className="max-w-7xl mx-auto grid md:grid-cols-12 gap-6 p-4">
-        {/* Main Content */}
         <div className="md:col-span-8 space-y-4">
-          <h1 className="text-3xl text-slate-700 font-[Cholontika]">{transformedPost.title}</h1>
+          <h1 className="text-3xl text-slate-700 font-[Cholontika]">
+            {post.title}
+          </h1>
+
           <div className="text-sm text-gray-500">
-            ✍️ {transformedPost.author?.name} •{" "}
-            {new Date(transformedPost.createdAt).toLocaleString("bn-BD")}
+            ✍️ {post.author?.name} • {new Date(post.createdAt).toLocaleString("bn-BD")}
           </div>
 
-          {transformedPost.featureImage && (
+          {post.featureImage && (
             <Image
-              src={transformedPost.featureImage}
+              src={post.featureImage}
               className="rounded w-full"
               width={1200}
               height={600}
-              alt={transformedPost.title}
+              sizes="(max-width: 768px) 100vw, 66vw"
+              alt={post.title}
               priority
             />
           )}
 
           <div
             className="prose prose-neutral max-w-none font-[NotoSerifBengali] text-xl text-neutral-700"
-            dangerouslySetInnerHTML={{ __html: transformedPost.content }}
+            dangerouslySetInnerHTML={{ __html: post.content }}
           />
 
-          {/* Share Links */}
           <div className="mt-6 border-t pt-4 space-x-3">
             <p className="text-sm text-gray-600 mb-1">🔗 শেয়ার করুন:</p>
-            <a href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(fullUrl)}`} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline text-sm">
+            <a
+              href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(
+                fullUrl
+              )}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 underline text-sm"
+            >
               Facebook
             </a>
-            <a href={`https://wa.me/?text=${encodeURIComponent(transformedPost.title + " " + fullUrl)}`} target="_blank" rel="noopener noreferrer" className="text-green-600 underline text-sm">
+            <a
+              href={`https://wa.me/?text=${encodeURIComponent(
+                post.title + " " + fullUrl
+              )}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-green-600 underline text-sm"
+            >
               WhatsApp
             </a>
           </div>
 
-          <div className="text-sm mt-4 text-gray-400">🏷️ ট্যাগ: {transformedPost.tags}</div>
+          <div className="text-sm mt-4 text-gray-400">🏷️ ট্যাগ: {post.tags}</div>
         </div>
 
-        {/* Sidebar */}
         <aside className="md:col-span-4 space-y-6">
           <Section title="⚽ আরও খবর" posts={recent} />
           <Section title="⭐ নির্বাচিত সংবাদ" posts={editorsPick} />
@@ -177,7 +182,6 @@ export default async function PostPage({ params }: { params: { category: string;
   );
 }
 
-// Sidebar section component
 interface SidebarPost {
   id: string;
   title: string;
@@ -206,6 +210,7 @@ function Section({ title, posts }: { title: string; posts: SidebarPost[] }) {
                 alt={p.title}
                 height={75}
                 width={120}
+                sizes="64px"
               />
               <span className="group-hover:underline">{p.title}</span>
             </Link>
@@ -215,4 +220,3 @@ function Section({ title, posts }: { title: string; posts: SidebarPost[] }) {
     </div>
   );
 }
-
