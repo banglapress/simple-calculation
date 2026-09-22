@@ -22,6 +22,8 @@ interface Category {
   subcategories: Subcategory[];
 }
 
+type SubmissionStatus = "DRAFT" | "PENDING";
+
 export default function PostEditorForm() {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
@@ -31,9 +33,9 @@ export default function PostEditorForm() {
   const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
   const [subcategoryId, setSubcategoryId] = useState("");
   const [tags, setTags] = useState("");
-  const [status, setStatus] = useState<"DRAFT" | "PENDING">("DRAFT");
   const [message, setMessage] = useState("");
-  const [saving, setSaving] = useState(false);
+  const [submittingStatus, setSubmittingStatus] =
+    useState<SubmissionStatus | null>(null);
 
   useEffect(() => {
     axios
@@ -68,7 +70,19 @@ export default function PostEditorForm() {
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setSaving(true);
+
+    const formData = new FormData(e.currentTarget);
+    const submissionStatus = formData.get("submissionStatus");
+
+    if (
+      submissionStatus !== "DRAFT" &&
+      submissionStatus !== "PENDING"
+    ) {
+      setMessage("❌ পোস্টের status নির্বাচন করা যায়নি।");
+      return;
+    }
+
+    setSubmittingStatus(submissionStatus);
     setMessage("");
 
     try {
@@ -80,12 +94,12 @@ export default function PostEditorForm() {
         categoryIds: categoryId ? [Number(categoryId)] : [],
         subcategoryIds: subcategoryId ? [Number(subcategoryId)] : [],
         tags,
-        status,
+        status: submissionStatus,
         featureImage: uploadedUrl || "",
       });
 
       setMessage(
-        status === "DRAFT"
+        submissionStatus === "DRAFT"
           ? "✅ পোস্ট খসড়া হিসেবে সংরক্ষিত হয়েছে"
           : "✅ পোস্ট সম্পাদকের কাছে পাঠানো হয়েছে"
       );
@@ -95,7 +109,7 @@ export default function PostEditorForm() {
         : null;
       setMessage("❌ " + (responseMessage || "সমস্যা হয়েছে। আবার চেষ্টা করুন।"));
     } finally {
-      setSaving(false);
+      setSubmittingStatus(null);
     }
   };
 
@@ -184,19 +198,25 @@ export default function PostEditorForm() {
       <div className="flex gap-3">
         <button
           type="submit"
-          onClick={() => setStatus("DRAFT")}
-          disabled={saving}
+          name="submissionStatus"
+          value="DRAFT"
+          onClick={() => setSubmittingStatus("DRAFT")}
+          disabled={submittingStatus !== null}
           className="bg-gray-700 disabled:opacity-50 text-white px-5 py-2.5 rounded-lg"
         >
-          {saving && status === "DRAFT" ? "সংরক্ষণ হচ্ছে..." : "খসড়া সংরক্ষণ"}
+          {submittingStatus === "DRAFT"
+            ? "সংরক্ষণ হচ্ছে..."
+            : "খসড়া সংরক্ষণ"}
         </button>
         <button
           type="submit"
-          onClick={() => setStatus("PENDING")}
-          disabled={saving}
+          name="submissionStatus"
+          value="PENDING"
+          onClick={() => setSubmittingStatus("PENDING")}
+          disabled={submittingStatus !== null}
           className="bg-blue-600 disabled:opacity-50 text-white px-5 py-2.5 rounded-lg"
         >
-          {saving && status === "PENDING"
+          {submittingStatus === "PENDING"
             ? "পাঠানো হচ্ছে..."
             : "সম্পাদকের জন্য পাঠান"}
         </button>
