@@ -74,27 +74,54 @@ export function getHomePlacementPosts() {
   return getCachedHomePlacementPosts();
 }
 
-function getCachedHomeCategoryPosts(slug: string) {
-  return unstable_cache(
-    async () =>
-      prisma.post.findMany({
-        where: {
-          status: "PUBLISHED",
-          categories: { some: { slug } },
-        },
-        orderBy: { updatedAt: "desc" },
-        take: 4,
-        select: publicPostCardSelect,
-      }),
-    ["home-category-posts", slug],
-    {
-      revalidate: HOME_REVALIDATE_SECONDS,
-    }
-  )();
-}
+const HOME_CATEGORY_SLUGS = [
+  "football",
+  "cricket",
+  "hockey",
+  "athletics",
+  "othersports",
+  "sports-tech",
+  "sports-culture",
+] as const;
 
-export function getHomeCategoryPosts(slug: HomeCategorySlug) {
-  return getCachedHomeCategoryPosts(slug);
+type HomeCategorySlug = (typeof HOME_CATEGORY_SLUGS)[number];
+
+const getCachedHomeCategoryPosts = unstable_cache(
+  async () =>
+    prisma.post.findMany({
+      where: {
+        status: "PUBLISHED",
+        categories: {
+          some: {
+            slug: { in: [...HOME_CATEGORY_SLUGS] },
+          },
+        },
+      },
+      orderBy: { updatedAt: "desc" },
+      take: 40,
+      select: publicPostCardSelect,
+    }),
+  ["home-category-posts-all"],
+  {
+    revalidate: HOME_REVALIDATE_SECONDS,
+  }
+);
+
+export async function getHomeCategoryPosts() {
+  const posts = await getCachedHomeCategoryPosts();
+  const grouped = Object.fromEntries(
+    HOME_CATEGORY_SLUGS.map((slug) => [slug, [] as typeof posts])
+  ) as Record<HomeCategorySlug, typeof posts>;
+
+  for (const post of posts) {
+    for (const category of post.categories) {
+      if (!(category.slug in grouped)) continue;
+      if (grouped[category.slug as HomeCategorySlug].length >= 4) continue;
+      grouped[category.slug as HomeCategorySlug].push(post);
+    }
+  }
+
+  return grouped;
 }
 
 const publicPostSelect = {
