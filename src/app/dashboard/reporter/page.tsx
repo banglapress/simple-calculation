@@ -14,11 +14,7 @@ export default async function ReporterDashboard() {
 
   const user = await prisma.user.findUnique({
     where: { email: session.user.email },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-    },
+    select: { id: true, name: true, email: true },
   });
 
   if (!user) {
@@ -33,35 +29,32 @@ export default async function ReporterDashboard() {
       id: true,
       title: true,
       status: true,
+      placement: true,
+      isBreaking: true,
       createdAt: true,
       categories: {
-        select: {
-          name: true,
-          slug: true,
-        },
+        select: { name: true, slug: true },
       },
       subcategories: {
-        select: {
-          name: true,
-          slug: true,
-        },
+        select: { name: true, slug: true },
       },
     },
   });
 
   const draftCount = posts.filter((post) => post.status === "DRAFT").length;
   const pendingCount = posts.filter((post) => post.status === "PENDING").length;
-  const publishedCount = posts.filter(
-    (post) => post.status === "PUBLISHED"
-  ).length;
+  const publishedCount = posts.filter((post) => post.status === "PUBLISHED").length;
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap justify-between items-center gap-3">
         <div>
           <p className="text-sm text-gray-500">রিপোর্টার ড্যাশবোর্ড</p>
-          <h1 className="text-2xl font-bold">স্বাগতম, {user.name || "রিপোর্টার"}</h1>
+          <h1 className="text-2xl font-bold">
+            স্বাগতম, {user.name || "রিপোর্টার"}
+          </h1>
         </div>
+
         <Link
           href="/dashboard/reporter/new"
           className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
@@ -77,20 +70,19 @@ export default async function ReporterDashboard() {
       </div>
 
       <div className="bg-white border rounded-xl p-5">
-        <h2 className="font-bold mb-2">ক্যাটাগরি কীভাবে সেট করবেন?</h2>
+        <h2 className="font-bold mb-2">ক্যাটাগরি ও পজিশন কীভাবে সেট করবেন?</h2>
         <p className="text-sm text-gray-600">
-          নতুন পোস্ট লেখার সময় আগে মূল ক্যাটাগরি নির্বাচন করুন। এরপর সেই
-          ক্যাটাগরির সাবক্যাটাগরি থাকলে নিচের তালিকা থেকে একটি নির্বাচন করুন।
-          যেমন: ফুটবল → লা লিগা অথবা প্রিমিয়ার লিগ।
+          নতুন পোস্টে আগে মূল ক্যাটাগরি, তারপর সাবক্যাটাগরি নির্বাচন করুন।
+          এরপর হোমপেইজ পজিশন থেকে Lead, Second Lead, Editor&apos;s Pick বা
+          Trending নির্বাচন করতে পারবেন। AI draft তৈরি করলেও এগুলো হাতে ঠিক
+          করা যাবে।
         </p>
       </div>
 
       <div className="bg-white border rounded-xl p-5">
         <div className="flex justify-between items-center gap-3 mb-4">
           <h2 className="font-bold">🗂 আপনার সাম্প্রতিক পোস্ট</h2>
-          <span className="text-xs text-gray-500">
-            সর্বশেষ {posts.length}টি
-          </span>
+          <span className="text-xs text-gray-500">সর্বশেষ {posts.length}টি</span>
         </div>
 
         {posts.length === 0 ? (
@@ -118,6 +110,7 @@ export default async function ReporterDashboard() {
                       {category.name}
                     </span>
                   ))}
+
                   {post.subcategories.map((subcategory) => (
                     <span
                       key={subcategory.slug}
@@ -126,6 +119,14 @@ export default async function ReporterDashboard() {
                       {subcategory.name}
                     </span>
                   ))}
+
+                  <PlacementLabel placement={post.placement} />
+
+                  {post.isBreaking && (
+                    <span className="bg-red-50 text-red-700 px-2 py-1 rounded-full">
+                      🛑 ব্রেকিং
+                    </span>
+                  )}
                 </div>
 
                 <p className="text-sm text-gray-500 mt-2">
@@ -147,6 +148,31 @@ function StatCard({ label, value }: { label: string; value: number }) {
       <p className="text-sm text-gray-500">{label}</p>
       <p className="text-3xl font-bold mt-1">{value}</p>
     </div>
+  );
+}
+
+function PlacementLabel({
+  placement,
+}: {
+  placement:
+    | "NONE"
+    | "LEAD"
+    | "SECOND_LEAD"
+    | "EDITORS_PICK"
+    | "TRENDING";
+}) {
+  const labels = {
+    NONE: "⚪ সাধারণ",
+    LEAD: "🔴 Lead",
+    SECOND_LEAD: "🟠 Second Lead",
+    EDITORS_PICK: "⭐ Editor's Pick",
+    TRENDING: "🔥 Trending",
+  } as const;
+
+  return (
+    <span className="bg-amber-50 text-amber-700 px-2 py-1 rounded-full">
+      {labels[placement]}
+    </span>
   );
 }
 
