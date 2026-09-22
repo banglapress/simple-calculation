@@ -5,7 +5,7 @@ interface Post {
   id: string;
   title: string;
   featureImage: string;
-  content?: string;
+  excerpt?: string | null;
   categories: { slug: string }[];
   subcategories: { slug: string }[];
 }
@@ -22,6 +22,7 @@ export default function LeadCard({ post }: { post: Post }) {
         alt={post.title}
         width={800}
         height={500}
+        sizes="(max-width: 768px) 100vw, 58vw"
         className="w-full h-[400px] object-cover hover:scale-105 transition-transform"
         priority
       />
@@ -29,9 +30,9 @@ export default function LeadCard({ post }: { post: Post }) {
         <h1 className="text-3xl font-[Cholontika] text-gray-800 mb-2">
           {post.title}
         </h1>
-        {post.content && (
+        {post.excerpt && (
           <p className="text-gray-600 text-sm font-[NotoSerifBengali]">
-            {post.content.replace(/<[^>]+>/g, "").slice(0, 160)}...
+            {post.excerpt}...
           </p>
         )}
       </div>
