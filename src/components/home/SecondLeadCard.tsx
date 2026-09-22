@@ -5,7 +5,7 @@ interface Post {
   id: string;
   title: string;
   featureImage: string;
-  content?: string;
+  excerpt?: string | null;
   categories: { slug: string }[];
   subcategories: { slug: string }[];
 }
@@ -25,15 +25,16 @@ export default function SecondLeadCard({ post }: { post: Post }) {
         alt={post.title}
         width={500}
         height={350}
+        sizes="(max-width: 768px) 100vw, 40vw"
         className="w-full h-[350px] object-cover hover:scale-105 transition-transform"
       />
       <div className="p-3">
         <h2 className="text-2xl font-[Cholontika] text-gray-800 mb-1">
           {post.title}
         </h2>
-        {post.content && (
+        {post.excerpt && (
           <p className="text-gray-600 text-sm font-[NotoSerifBengali]">
-            {post.content.replace(/<[^>]+>/g, "").slice(0, 100)}...
+            {post.excerpt}...
           </p>
         )}
       </div>
