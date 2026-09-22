@@ -3,6 +3,7 @@ import { fetchRSSFeed, filterRSSItems } from "@/lib/rss";
 import { generateSportsArticle } from "@/lib/ai";
 import { generateSportsResearch } from "@/lib/ai-research";
 import { buildFacebookCaption } from "@/lib/facebook";
+import { generateFacebookCard } from "@/lib/facebook-card";
 
 type RSSItem = {
   title: string;
@@ -371,6 +372,35 @@ async function processStory(storyId: string) {
         facebookStatus: "READY",
       },
     });
+
+    try {
+      if (finalPost.featureImage?.trim()) {
+        const facebookImage = await generateFacebookCard({
+          title: finalPost.title,
+          category: category?.name || "খেলা",
+          featureImage: finalPost.featureImage,
+        });
+
+        await prisma.post.update({
+          where: { id: finalPost.id },
+          data: {
+            facebookImage,
+            facebookStatus: "READY",
+            facebookError: null,
+          },
+        });
+      }
+    } catch (error) {
+      const cardError =
+        error instanceof Error
+          ? error.message
+          : "Facebook photo card তৈরি করা যায়নি";
+
+      await prisma.post.update({
+        where: { id: finalPost.id },
+        data: { facebookError: cardError },
+      });
+    }
 
     await prisma.deskStory.update({
       where: { id: storyId },
