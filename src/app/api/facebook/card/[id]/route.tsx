@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const size = { width: 1200, height: 630 };
+const size = { width: 1080, height: 1350 };
 let cachedFont: ArrayBuffer | null = null;
 
 async function getBanglaFont() {
@@ -87,42 +87,11 @@ export async function GET(
   });
 
   if (!post) {
-    return new ImageResponse(
-      <div
-        style={{
-          width: "100%",
-          height: "100%",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          background: "#111827",
-          color: "white",
-          fontSize: 56,
-          fontWeight: 700,
-        }}
-      >
-        KhelaTV
-      </div>,
-      { ...size }
-    );
-  }
-
-  if (post.status !== "PUBLISHED") {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.role || !["EDITOR", "ADMIN"].includes(session.user.role)) {
-      return new Response("Not found", { status: 404 });
-    }
-  }
-
-  const font = await getBanglaFont();
-  const sourceImageUrl =
-    absoluteImageUrl(post.facebookImageUrl) ||
-    absoluteImageUrl(post.featureImage);
-  const imageUrl = sourceImageUrl
-    ? await loadImageDataUrl(sourceImageUrl)
-    : "";
-  const categoryName = post.categories[0]?.name || "খেলা";
-  const title = post.title.trim().slice(0, 180);
+    const support = String(post.excerpt || "")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 150);
 
   return new ImageResponse(
     <div
@@ -130,83 +99,92 @@ export async function GET(
         width: "100%",
         height: "100%",
         display: "flex",
-        position: "relative",
-        overflow: "hidden",
-        backgroundColor: "#0f172a",
-        color: "white",
+        flexDirection: "column",
+        backgroundColor: "#f5f0e8",
+        color: "#17130f",
         fontFamily: "Noto Sans Bengali",
       }}
     >
-      {imageUrl ? (
-        <img
-          src={imageUrl}
-          alt=""
-          style={{
-            position: "absolute",
-            inset: 0,
-            width: "100%",
-            height: "100%",
-            objectFit: "cover",
-          }}
-        />
-      ) : (
+      <div
+        style={{
+          height: 96,
+          width: "100%",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "0 48px",
+          background: "#111827",
+          color: "white",
+          fontSize: 30,
+          fontWeight: 700,
+        }}
+      >
+        <div>KhelaTV</div>
+        <div style={{ opacity: 0.85, fontSize: 22 }}>SPORTS NEWS</div>
+      </div>
+
+      <div
+        style={{
+          position: "relative",
+          width: "100%",
+          height: 790,
+          display: "flex",
+          overflow: "hidden",
+          background: "#0f172a",
+        }}
+      >
+        {imageUrl ? (
+          <img
+            src={imageUrl}
+            alt=""
+            style={{
+              position: "absolute",
+              inset: 0,
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+            }}
+          />
+        ) : (
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              display: "flex",
+              background: "linear-gradient(135deg,#111827,#1d4ed8)",
+            }}
+          />
+        )}
+
         <div
           style={{
             position: "absolute",
             inset: 0,
             display: "flex",
             background:
-              "linear-gradient(135deg, #111827 0%, #1d4ed8 50%, #0f172a 100%)",
+              "linear-gradient(180deg,rgba(0,0,0,0.02) 45%,rgba(0,0,0,0.62) 100%)",
           }}
         />
-      )}
-
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          display: "flex",
-          background:
-            "linear-gradient(180deg, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.28) 35%, rgba(0,0,0,0.88) 100%)",
-        }}
-      />
-
-      <div
-        style={{
-          position: "absolute",
-          top: 34,
-          left: 42,
-          display: "flex",
-          alignItems: "center",
-          padding: "10px 18px",
-          borderRadius: 12,
-          background: "rgba(15,23,42,0.88)",
-          fontSize: 28,
-          fontWeight: 700,
-        }}
-      >
-        KhelaTV
       </div>
 
       <div
         style={{
-          position: "absolute",
-          left: 48,
-          right: 48,
-          bottom: 38,
+          height: 464,
+          width: "100%",
           display: "flex",
           flexDirection: "column",
-          alignItems: "flex-start",
+          justifyContent: "flex-start",
+          padding: "38px 54px 34px",
+          background: "#f5f0e8",
         }}
       >
         <div
           style={{
             display: "flex",
-            marginBottom: 14,
-            padding: "7px 14px",
-            borderRadius: 10,
-            background: "#ef4444",
-            fontSize: 22,
+            alignItems: "center",
+            marginBottom: 16,
+            fontSize: 24,
+            color: "#b42318",
             fontWeight: 700,
           }}
         >
@@ -216,16 +194,50 @@ export async function GET(
         <div
           style={{
             display: "flex",
-            maxWidth: "1080px",
-            fontSize: title.length > 90 ? 46 : title.length > 60 ? 54 : 62,
-            lineHeight: 1.18,
+            maxWidth: 970,
+            fontSize: title.length > 90 ? 48 : title.length > 60 ? 54 : 60,
+            lineHeight: 1.16,
             fontWeight: 700,
-            textShadow: "0 3px 12px rgba(0,0,0,0.7)",
           }}
         >
           {title}
         </div>
+
+        {support ? (
+          <div
+            style={{
+              display: "flex",
+              maxWidth: 940,
+              marginTop: 20,
+              fontSize: 28,
+              lineHeight: 1.3,
+              color: "#5b5147",
+            }}
+          >
+            {support}
+          </div>
+        ) : null}
+
+        <div
+          style={{
+            display: "flex",
+            marginTop: "auto",
+            fontSize: 20,
+            color: "#7c7064",
+          }}
+        >
+          www.khelatv.com
+        </div>
       </div>
+
+      <div
+        style={{
+          height: 18,
+          width: "100%",
+          display: "flex",
+          background: "#b42318",
+        }}
+      />
     </div>,
     {
       ...size,
