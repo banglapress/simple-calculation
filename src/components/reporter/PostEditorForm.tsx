@@ -33,6 +33,7 @@ type Placement =
 export default function PostEditorForm() {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
+  const [editorInitialHtml, setEditorInitialHtml] = useState("");
   const [featureImage, setFeatureImage] = useState<File | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [categoryId, setCategoryId] = useState("");
@@ -90,7 +91,10 @@ export default function PostEditorForm() {
       const data = response.data;
 
       if (data.title) setTitle(data.title);
-      if (data.body_html) setContent(data.body_html);
+      if (data.body_html) {
+        setContent(data.body_html);
+        setEditorInitialHtml(data.body_html);
+      }
       if (Array.isArray(data.tags)) setTags(data.tags.join(", "));
 
       const warnings = Array.isArray(data.warnings) ? data.warnings : [];
@@ -231,7 +235,7 @@ export default function PostEditorForm() {
       />
 
       <LexicalEditor
-        initialHtml={content}
+        initialHtml={editorInitialHtml}
         onChange={setContent}
       />
 
