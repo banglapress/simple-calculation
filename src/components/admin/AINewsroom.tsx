@@ -35,6 +35,9 @@ type Story = {
   sourceCount: number;
   relevanceScore: number | null;
   relevanceReason: string | null;
+  researchStatus: string | null;
+  articleStatus: string | null;
+  articleWarnings?: unknown;
   warning: string | null;
   lastError: string | null;
   category?: { id: number; name: string; slug: string } | null;
@@ -256,8 +259,16 @@ export default function AINewsroom() {
       const response = await axios.post("/api/admin/ai/stories/" + story.id + "/run");
       setMessage(
         response.data.step === "draft"
-          ? "✅ Story-এর draft তৈরি হয়েছে। Editor queue-তে পাওয়া যাবে।"
-          : "⏭️ Story status: " + (response.data.step || "review")
+          ? "✅ Story → source collection → research → AI draft সম্পন্ন। Editor queue-তে পাওয়া যাবে।"
+          : response.data.step === "error"
+            ? "❌ Story processing ব্যর্থ: " +
+              (response.data.error || "অজানা error")
+            : "⏭️ Story status: " +
+              (response.data.step || "review") +
+              (response.data.reason ? " · " + response.data.reason : "") +
+              (response.data.relevanceScore != null
+                ? " · Relevance " + response.data.relevanceScore + "/100"
+                : "")
       );
       await load();
     } catch (error) {
