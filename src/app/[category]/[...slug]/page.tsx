@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { prisma } from "@/lib/prisma";
 import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
@@ -18,7 +19,30 @@ const SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL || "https://www.khelatv.com";
 
 export async function generateStaticParams() {
-  return [];
+  const posts = await prisma.post.findMany({
+    where: { status: "PUBLISHED" },
+    orderBy: { updatedAt: "desc" },
+    take: 50,
+    select: {
+      id: true,
+      categories: { select: { slug: true } },
+      subcategories: { select: { slug: true } },
+    },
+  });
+
+  return posts.flatMap((post) => {
+    const category = post.categories[0]?.slug;
+    if (!category) return [];
+
+    const subcategory = post.subcategories[0]?.slug;
+
+    return [
+      {
+        category,
+        slug: subcategory ? [subcategory, post.id] : [post.id],
+      },
+    ];
+  });
 }
 
 export async function generateMetadata({
