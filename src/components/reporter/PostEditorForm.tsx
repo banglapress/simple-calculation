@@ -308,7 +308,7 @@ export default function PostEditorForm() {
           <option value="NONE">⚪ সাধারণ — কোনো বিশেষ পজিশন নয়</option>
           <option value="LEAD">🔴 Lead — প্রধান খবর</option>
           <option value="SECOND_LEAD">🟠 Second Lead — দ্বিতীয় প্রধান খবর</option>
-          <option value="EDITORS_PICK">⭐ Editor's Pick — নির্বাচিত</option>
+          <option value="EDITORS_PICK">⭐ Editor&apos;s Pick — নির্বাচিত</option>
           <option value="TRENDING">🔥 Trending — ট্রেন্ডিং</option>
         </select>
         <p className="text-xs text-gray-500 mt-1">
