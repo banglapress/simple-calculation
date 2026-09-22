@@ -21,16 +21,16 @@ export async function POST(
   try {
     const post = await prisma.post.findUnique({
       where: { id: context.params.id },
-      select: { id: true, status: true, facebookImage: true },
+      select: { id: true, status: true, facebookImage: true, featureImage: true },
     });
 
     if (!post) {
       return NextResponse.json({ message: "Post not found" }, { status: 404 });
     }
 
-    if (!post.facebookImage) {
+    if (!post.facebookImage && !post.featureImage) {
       return NextResponse.json(
-        { message: "Facebook photo card আগে তৈরি করুন।" },
+        { message: "Facebook publish-এর জন্য Feature Image দরকার।" },
         { status: 400 }
       );
     }
