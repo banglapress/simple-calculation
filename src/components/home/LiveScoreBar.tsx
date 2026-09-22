@@ -1,36 +1,21 @@
-// src/components/home/LiveScoreBar.tsx
+import Link from "next/link";
+import { getLiveScore } from "@/lib/public-data";
 
-"use client";
-
-import { useEffect, useState } from "react";
-
-type LiveScore = {
-  teamA: string;
-  teamB: string;
-  scoreA: number;
-  scoreB: number;
-  status: string;
-  commentaryId?: string;
-};
-
-export default function LiveScoreBar() {
-  const [score, setScore] = useState<LiveScore | null>(null);
-
-  useEffect(() => {
-    fetch("/api/public/livescore")
-      .then((res) => res.json())
-      .then((data: LiveScore) => setScore(data));
-  }, []);
+export default async function LiveScoreBar() {
+  const score = await getLiveScore();
 
   if (!score) return null;
 
   return (
     <div className="bg-black text-white text-center py-2 text-sm">
-      🏆 {score.teamA} {score.scoreA} - {score.scoreB} {score.teamB} | 🕒 {score.status}{" "}
+      🏆 {score.teamOne} {score.teamOneScore} - {score.teamTwoScore} {score.teamTwo} | 🕒 {score.matchStatus}
       {score.commentaryId && (
-        <a href={`/post/${score.commentaryId}`} className="underline ml-4">
+        <Link
+          href={`/post/${score.commentaryId}`}
+          className="underline ml-4"
+        >
           পূর্ণ কমেন্টারি দেখুন
-        </a>
+        </Link>
       )}
     </div>
   );
