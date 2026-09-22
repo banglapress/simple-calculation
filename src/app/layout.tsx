@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import Provider from "@/components/SessionProvider";
 
 export const metadata: Metadata = {
   title: "খেলা টিভি",
@@ -19,11 +18,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="bn">
-      <body className="antialiased bg-white text-gray-800">
-        <Provider>
-          {children}
-        </Provider>
-      </body>
+      <body className="antialiased bg-white text-gray-800">{children}</body>
     </html>
   );
 }
