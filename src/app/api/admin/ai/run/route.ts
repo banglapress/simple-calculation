@@ -4,6 +4,7 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { ingestFeed, processDeskQueue } from "@/lib/desk-newsroom";
 
 export const runtime = "nodejs";
+export const maxDuration = 300;
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
