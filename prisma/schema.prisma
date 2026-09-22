@@ -48,6 +48,7 @@ model Post {
   title          String
   content        String         @db.Text
   excerpt        String?        @db.Text
+  galleryImages  String?        @db.Text
   featureImage   String
   tags           String?
   status         PostStatus     @default(DRAFT)
@@ -82,6 +83,15 @@ model Subcategory {
   category   Category @relation(fields: [categoryId], references: [id])
   categoryId Int
   posts      Post[]   @relation("PostSubcategories")
+}
+
+model NewsFeed {
+  id        Int      @id @default(autoincrement())
+  name      String
+  url       String   @unique
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model LiveScore {
