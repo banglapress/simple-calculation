@@ -424,7 +424,7 @@ export default function EditorPostForm({ postId }: { postId: string }) {
           <img
             src={"/api/facebook/card/" + postId + "?preview=" + Date.now()}
             alt="Facebook Photo Card"
-            className="w-full aspect-[1200/630] object-cover"
+            className="w-full aspect-[4/5] object-cover"
           />
         </div>
 
