@@ -171,6 +171,7 @@ async function PostPage({ post }: { post: NonNullable<PublicPost> }) {
   const categoryId = post.categories[0]?.id || 0;
   const categorySlug = post.categories[0]?.slug || "category";
   const subcategorySlug = post.subcategories[0]?.slug || null;
+  const galleryImages = parseGalleryImages(post.galleryImages);
   const fullUrl =
     SITE_URL +
     "/" +
@@ -224,6 +225,27 @@ async function PostPage({ post }: { post: NonNullable<PublicPost> }) {
             dangerouslySetInnerHTML={{ __html: post.content }}
           />
 
+          {galleryImages.length > 0 && (
+            <section className="pt-4 border-t">
+              <h2 className="text-xl font-bold font-[NotoSerifBengali] mb-3">
+                আরও ছবি
+              </h2>
+              <div className="grid grid-cols-2 gap-3">
+                {galleryImages.map((src, index) => (
+                  <Image
+                    key={src + index}
+                    src={src}
+                    alt={post.title + " — ছবি " + (index + 1)}
+                    width={900}
+                    height={600}
+                    className="w-full rounded-lg object-cover"
+                    sizes="(max-width: 768px) 50vw, 33vw"
+                  />
+                ))}
+              </div>
+            </section>
+          )}
+
           <div className="mt-6 border-t pt-4 space-x-3">
             <p className="text-sm text-gray-600 mb-1">🔗 শেয়ার করুন:</p>
             <a
@@ -263,6 +285,20 @@ async function PostPage({ post }: { post: NonNullable<PublicPost> }) {
       <Footer />
     </>
   );
+}
+
+function parseGalleryImages(value?: string | null) {
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((item): item is string => typeof item === "string")
+      .filter(Boolean)
+      .slice(0, 20);
+  } catch {
+    return [];
+  }
 }
 
 function PostGrid({
