@@ -1,23 +1,32 @@
 import { prisma } from "@/lib/prisma";
 import { buildFacebookCaption, publishFacebookPhoto } from "@/lib/facebook";
 
-export async function publishPostToFacebook(postId: string) {
+export async function publishPostToFacebook(
+  postId: string,
+  options: { force?: boolean } = {}
+) {
   const post = await prisma.post.findUnique({
     where: { id: postId },
     include: {
-      categories: {
-        select: { slug: true },
-      },
+      categories: { select: { slug: true } },
     },
   });
 
   if (!post) throw new Error("Post not found");
+
   if (post.status !== "PUBLISHED") {
-    return { attempted: false, published: false, reason: "not_published" };
+    return {
+      attempted: false,
+      published: false,
+      reason: "not_published",
+      error: "আগে Article Publish করতে হবে।",
+    };
   }
-  if (!post.facebookAutoPost) {
+
+  if (!options.force && !post.facebookAutoPost) {
     return { attempted: false, published: false, reason: "disabled" };
   }
+
   if (post.facebookStatus === "PUBLISHED" && post.facebookPostId) {
     return {
       attempted: false,
@@ -25,18 +34,6 @@ export async function publishPostToFacebook(postId: string) {
       postId: post.facebookPostId,
       reason: "already_published",
     };
-  }
-
-  if (!post.featureImage?.trim()) {
-    const message = "Facebook auto-post skipped: আগে feature image যোগ করুন।";
-    await prisma.post.update({
-      where: { id: postId },
-      data: {
-        facebookStatus: "FAILED",
-        facebookError: message,
-      },
-    });
-    return { attempted: true, published: false, error: message };
   }
 
   const categorySlug = post.categories[0]?.slug || "sports";
@@ -52,6 +49,9 @@ export async function publishPostToFacebook(postId: string) {
       tags: post.tags,
     });
 
+  const cardUrl =
+    "https://www.khelatv.com/api/facebook/card/" + post.id;
+
   await prisma.post.update({
     where: { id: postId },
     data: {
@@ -63,7 +63,7 @@ export async function publishPostToFacebook(postId: string) {
 
   try {
     const result = await publishFacebookPhoto({
-      imageUrl: post.featureImage,
+      imageUrl: cardUrl,
       caption,
     });
 
@@ -82,6 +82,7 @@ export async function publishPostToFacebook(postId: string) {
       published: true,
       postId: result.postId,
       pageName: result.pageName,
+      imageUrl: cardUrl,
     };
   } catch (error) {
     const message =
@@ -95,6 +96,11 @@ export async function publishPostToFacebook(postId: string) {
       },
     });
 
-    return { attempted: true, published: false, error: message };
+    return {
+      attempted: true,
+      published: false,
+      error: message,
+      imageUrl: cardUrl,
+    };
   }
 }
