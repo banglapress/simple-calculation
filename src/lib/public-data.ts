@@ -4,15 +4,14 @@ import { prisma } from "@/lib/prisma";
 const HOME_REVALIDATE_SECONDS = 60;
 const CATEGORY_REVALIDATE_SECONDS = 3600;
 
-const homeCategorySlugs = [
-  "football",
-  "cricket",
-  "hockey",
-  "athletics",
-  "othersports",
-  "sports-tech",
-  "sports-culture",
-] as const;
+type HomeCategorySlug =
+  | "football"
+  | "cricket"
+  | "hockey"
+  | "athletics"
+  | "othersports"
+  | "sports-tech"
+  | "sports-culture";
 
 const publicPostCardSelect = {
   id: true,
@@ -94,7 +93,7 @@ function getCachedHomeCategoryPosts(slug: string) {
   )();
 }
 
-export function getHomeCategoryPosts(slug: (typeof homeCategorySlugs)[number]) {
+export function getHomeCategoryPosts(slug: HomeCategorySlug) {
   return getCachedHomeCategoryPosts(slug);
 }
 
