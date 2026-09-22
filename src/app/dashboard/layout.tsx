@@ -53,6 +53,11 @@ export default async function DashboardLayout({
                   </Link>
                 </li>
                 <li>
+                  <Link href="/dashboard/admin/ai">
+                    🤖 AI Newsroom
+                  </Link>
+                </li>
+                <li>
                   <Link href="/dashboard/editor">Editor Panel</Link>
                 </li>
                 <li>
