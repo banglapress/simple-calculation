@@ -266,12 +266,14 @@ async function collectMoreSourcesForStory(storyId: string, titleHint: string) {
 async function processStory(storyId: string) {
   const initialStory = await prisma.deskStory.findUnique({
     where: { id: storyId },
-    select: { id: true, titleHint: true },
+    select: { id: true, titleHint: true, sourceCount: true },
   });
 
   if (!initialStory) throw new Error("Story not found");
 
-  await collectMoreSourcesForStory(storyId, initialStory.titleHint);
+  if (initialStory.sourceCount < 2) {
+    await collectMoreSourcesForStory(storyId, initialStory.titleHint);
+  }
 
   const story = await prisma.deskStory.findUnique({
     where: { id: storyId },
@@ -628,7 +630,11 @@ export async function processDeskQueue(limit = 4, storyId?: string) {
     select: { id: true },
   });
 
-  return Promise.all(stories.map((story) => processStory(story.id)));
+  const results: Array<Record<string, unknown>> = [];
+  for (const story of stories) {
+    results.push(await processStory(story.id));
+  }
+  return results;
 }
 
 export async function runNewsroom(limit = 4) {
