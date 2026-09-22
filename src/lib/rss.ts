@@ -77,11 +77,15 @@ export async function fetchRSSFeed(url: string): Promise<RSSItem[]> {
       tagValue(block, "updated");
 
     if (title && link) {
+      const parsedDate = published ? new Date(published) : null;
       items.push({
         title,
         link,
         description: cleanDescription(description),
-        publishedAt: published ? new Date(published).toISOString() : null,
+        publishedAt:
+          parsedDate && !Number.isNaN(parsedDate.getTime())
+            ? parsedDate.toISOString()
+            : null,
       });
     }
   }
@@ -100,11 +104,15 @@ export async function fetchRSSFeed(url: string): Promise<RSSItem[]> {
       tagValue(block, "updated");
 
     if (title && link && !items.some((item) => item.link === link)) {
+      const parsedDate = published ? new Date(published) : null;
       items.push({
         title,
         link,
         description: cleanDescription(description),
-        publishedAt: published ? new Date(published).toISOString() : null,
+        publishedAt:
+          parsedDate && !Number.isNaN(parsedDate.getTime())
+            ? parsedDate.toISOString()
+            : null,
       });
     }
   }
