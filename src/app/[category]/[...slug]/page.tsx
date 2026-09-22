@@ -1,4 +1,3 @@
-import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import { Metadata } from "next";
 import Link from "next/link";
@@ -8,6 +7,7 @@ import Footer from "@/components/layout/Footer";
 import {
   getPlacementSidebarPosts,
   getPublicPostById,
+  getRelatedPosts,
 } from "@/lib/public-data";
 
 export const revalidate = 60;
@@ -85,22 +85,7 @@ export default async function PostPage({
   }/${post.id}`;
 
   const [recent, placementPosts] = await Promise.all([
-    prisma.post.findMany({
-      where: {
-        status: "PUBLISHED",
-        categories: { some: { id: categoryId } },
-        id: { not: post.id },
-      },
-      orderBy: { updatedAt: "desc" },
-      take: 6,
-      select: {
-        id: true,
-        title: true,
-        featureImage: true,
-        categories: { select: { slug: true } },
-        subcategories: { select: { slug: true } },
-      },
-    }),
+    getRelatedPosts(categoryId, post.id),
     getPlacementSidebarPosts(),
   ]);
 
