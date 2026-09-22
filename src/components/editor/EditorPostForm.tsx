@@ -41,6 +41,8 @@ interface Post {
   placement: string;
   isBreaking?: boolean;
   facebookCaption?: string | null;
+  facebookImageUrl?: string | null;
+  facebookImagePrompt?: string | null;
   facebookAutoPost?: boolean;
   facebookStatus?: string;
   facebookError?: string | null;
@@ -89,6 +91,7 @@ export default function EditorPostForm({ postId }: { postId: string }) {
   const [galleryFiles, setGalleryFiles] = useState<File[]>([]);
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
+  const [facebookImageBusy, setFacebookImageBusy] = useState(false);
 
   useEffect(() => {
     async function fetchData() {
@@ -163,6 +166,44 @@ export default function EditorPostForm({ postId }: { postId: string }) {
     setGalleryImages((current) =>
       current.filter((_, imageIndex) => imageIndex !== index)
     );
+  };
+
+  const generateFacebookImage = async () => {
+    if (!post) return;
+
+    setFacebookImageBusy(true);
+    setMessage("");
+
+    try {
+      const response = await axios.post(
+        "/api/editor/posts/" + postId + "/facebook-image",
+        {
+          prompt: post.facebookImagePrompt || "",
+        }
+      );
+
+      setPost({
+        ...post,
+        facebookImageUrl: response.data.imageUrl,
+        facebookImagePrompt: response.data.prompt,
+        facebookStatus: "READY",
+        facebookError: null,
+      });
+
+      setMessage(
+        "✅ Cloudflare দিয়ে Facebook-এর আলাদা AI image তৈরি হয়েছে।"
+      );
+    } catch (error) {
+      setMessage(
+        "❌ " +
+          (axios.isAxiosError(error)
+            ? error.response?.data?.message ||
+              "Facebook AI image তৈরি করা যায়নি"
+            : "Facebook AI image তৈরি করা যায়নি")
+      );
+    } finally {
+      setFacebookImageBusy(false);
+    }
   };
 
   const publishToFacebook = async () => {
@@ -325,14 +366,60 @@ export default function EditorPostForm({ postId }: { postId: string }) {
         <div>
           <p className="font-semibold">📘 Facebook Publishing</p>
           <p className="text-xs text-gray-600 mt-1">
-            Facebook-এ feature image নয়, আলাদা 1200×630 branded photo card ব্যবহার হবে।
-            Article Publish হওয়ার পর auto-post করা যাবে, অথবা এখান থেকে manually publish করা যাবে।
+            Facebook-এর জন্য Article feature image-এর বাইরে আলাদা AI image তৈরি করা যাবে।
+            তারপর code-designed KhelaTV photo card সেই image-এর ওপর headline বসিয়ে তৈরি হবে।
           </p>
+        </div>
+
+        <div className="border rounded-lg bg-white p-4 space-y-3">
+          <div className="flex flex-wrap justify-between gap-2">
+            <div>
+              <p className="font-semibold">🎨 Facebook AI Image</p>
+              <p className="text-xs text-gray-500 mt-1">
+                Provider: Cloudflare · FLUX.2 Klein 4B · 16:9
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={generateFacebookImage}
+              disabled={facebookImageBusy}
+              className="bg-purple-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm"
+            >
+              {facebookImageBusy
+                ? "⏳ Image তৈরি হচ্ছে..."
+                : post.facebookImageUrl
+                  ? "🔄 Regenerate AI Image"
+                  : "✨ Generate Facebook AI Image"}
+            </button>
+          </div>
+
+          <textarea
+            value={post.facebookImagePrompt || ""}
+            onChange={(e) =>
+              setPost({ ...post, facebookImagePrompt: e.target.value })
+            }
+            className="w-full min-h-28 border p-3 rounded-lg bg-white text-sm"
+            placeholder="Facebook AI image prompt"
+          />
+
+          {post.facebookImageUrl ? (
+            <div className="border rounded-lg overflow-hidden">
+              <img
+                src={post.facebookImageUrl}
+                alt="Facebook AI image"
+                className="w-full aspect-video object-cover"
+              />
+            </div>
+          ) : (
+            <p className="text-xs text-gray-500">
+              এখনো Facebook-এর জন্য আলাদা AI image তৈরি হয়নি।
+            </p>
+          )}
         </div>
 
         <div className="border rounded-lg bg-white overflow-hidden">
           <div className="px-3 py-2 text-xs font-medium text-gray-600 border-b">
-            🖼️ Facebook Photo Card Preview
+            🖼️ Code-designed Facebook Photo Card
           </div>
           <img
             src={"/api/facebook/card/" + postId + "?preview=" + Date.now()}
