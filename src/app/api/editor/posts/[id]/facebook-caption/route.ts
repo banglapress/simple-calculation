@@ -5,7 +5,6 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { buildFacebookCaption } from "@/lib/facebook";
 
 export async function POST(
-  _req: Request,
   context: { params: { id: string } }
 ) {
   const session = await getServerSession(authOptions);

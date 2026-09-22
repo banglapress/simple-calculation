@@ -9,6 +9,7 @@ type RSSItem = {
   link: string;
   description: string;
   publishedAt: string | null;
+  imageUrl: string | null;
 };
 
 function normalizeTitle(value: string) {
@@ -50,7 +51,10 @@ async function logJob(input: {
       storyId: input.storyId,
       stage: input.stage,
       status: input.status,
-      payload: input.payload as object | undefined,
+      payload:
+        input.payload === undefined
+          ? undefined
+          : JSON.parse(JSON.stringify(input.payload)),
       error: input.error || null,
       finishedAt: input.status === "running" ? null : new Date(),
     },
@@ -139,6 +143,7 @@ async function queueItem(feed: {
       title: item.title,
       excerpt: item.description || null,
       rawText: item.description || null,
+      imageUrl: item.imageUrl || null,
       publishedAt:
         publishedAt && !Number.isNaN(publishedAt.getTime())
           ? publishedAt

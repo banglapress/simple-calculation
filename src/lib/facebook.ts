@@ -99,7 +99,7 @@ export function buildFacebookCaption(input: {
 }) {
   const tags = String(input.tags || "")
     .split(",")
-    .map((tag) => tag.replace(/[^\\p{L}\\p{M}\\p{N}]+/gu, "").trim())
+    .map((tag) => tag.replace(/[^\p{L}\p{M}\p{N}]+/gu, "").trim())
     .filter((tag) => tag.length >= 2)
     .slice(0, 3)
     .map((tag) => "#" + tag);
