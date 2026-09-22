@@ -105,8 +105,22 @@ const ARTICLE_SCHEMA = {
       type: "array",
       items: { type: "string" },
     },
+    relevance_score: {
+      type: "integer",
+      minimum: 0,
+      maximum: 100,
+    },
+    relevance_reason: { type: "string" },
   },
-  required: ["title", "excerpt", "body_html", "tags", "warnings"],
+  required: [
+    "title",
+    "excerpt",
+    "body_html",
+    "tags",
+    "warnings",
+    "relevance_score",
+    "relevance_reason",
+  ],
   additionalProperties: false,
 };
 
@@ -268,7 +282,9 @@ export async function generateSportsArticle(input: {
 
   const prompt = [
     "You are the AI assistant of KhelaTV, a Bangla sports newsroom in Bangladesh.",
-    "Create an original sports news draft from the supplied source material.",
+    "First judge how relevant this source item is to a professional sports news desk.",
+    "Set relevance_score from 0 to 100. 90-100 means clearly important sports news; 70-89 means useful sports news; 50-69 means marginal or limited sports relevance; below 50 means not suitable for the sports desk.",
+    "Then create an original sports news draft from the supplied source material.",
     "Use ONLY facts supported by the supplied material.",
     "Never invent scores, statistics, dates, quotes, injuries, transfers, opinions or background.",
     "When the sources conflict or a fact is uncertain, mention the uncertainty in warnings and write conservatively.",
@@ -282,6 +298,7 @@ export async function generateSportsArticle(input: {
     "Produce a usable newsroom draft of roughly 600-900 Bangla words when the source material supports it.",
     "If the source material is too thin, write a shorter draft and add a warning.",
     "Return 3-8 useful tags in Bangla or the standard proper-name spelling.",
+    "Explain the relevance score briefly in relevance_reason.",
     "Topic/title hint: " + (input.title?.trim() || "Untitled sports story"),
     "Category: " + (input.categoryName?.trim() || "Sports"),
     sourceParts.join("\n\n--------------------\n\n"),
@@ -308,6 +325,10 @@ export async function generateSportsArticle(input: {
     warnings: Array.isArray(result.json?.warnings)
       ? result.json.warnings.map((item: unknown) => String(item).trim()).filter(Boolean)
       : [],
+    relevanceScore: Number.isFinite(Number(result.json?.relevance_score))
+      ? Math.min(100, Math.max(0, Math.round(Number(result.json?.relevance_score))))
+      : 0,
+    relevanceReason: String(result.json?.relevance_reason || "").trim(),
     provider: "gemini",
     model: result.model,
     usage: {

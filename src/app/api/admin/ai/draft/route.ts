@@ -22,6 +22,7 @@ export async function POST(req: NextRequest) {
     const url = String(body.url || "").trim();
     const description = String(body.description || "").trim();
     const categoryId = Number(body.categoryId);
+    const feedId = Number(body.feedId);
 
     if (!title || !url || !Number.isInteger(categoryId) || categoryId <= 0) {
       return NextResponse.json(
@@ -42,20 +43,32 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const feed =
+      Number.isInteger(feedId) && feedId > 0
+        ? await prisma.newsFeed.findUnique({
+            where: { id: feedId },
+            select: {
+              id: true,
+              name: true,
+              minRelevance: true,
+            },
+          })
+        : null;
+
     const existing = await prisma.post.findFirst({
       where: {
         OR: [
+          { sourceUrl: url },
           { title },
-          { content: { contains: url } },
         ],
       },
-      select: { id: true, title: true },
+      select: { id: true, title: true, sourceUrl: true },
     });
 
     if (existing) {
       return NextResponse.json(
         {
-          message: "এই source থেকে কাছাকাছি একটি draft/post আগে থেকেই আছে।",
+          message: "এই source থেকে একই বা খুব কাছাকাছি একটি draft/post আগে থেকেই আছে।",
           post: existing,
         },
         { status: 409 }
@@ -69,12 +82,28 @@ export async function POST(req: NextRequest) {
       sourceUrls: [url],
     });
 
+    const threshold = feed?.minRelevance ?? 60;
+
+    if (draft.relevanceScore < threshold) {
+      return NextResponse.json(
+        {
+          message:
+            "AI relevance check-এ এই itemটি KhelaTV-এর sports desk-এর জন্য যথেষ্ট প্রাসঙ্গিক নয়।",
+          relevanceScore: draft.relevanceScore,
+          relevanceReason: draft.relevanceReason,
+          threshold,
+        },
+        { status: 422 }
+      );
+    }
+
     const post = await prisma.post.create({
       data: {
         title: draft.title || title,
         content: draft.body_html || "",
         excerpt: draft.excerpt || "",
         featureImage: "",
+        sourceUrl: url,
         tags: draft.tags.join(", "),
         status: "DRAFT",
         placement: "NONE",
@@ -101,6 +130,10 @@ export async function POST(req: NextRequest) {
       provider: draft.provider,
       model: draft.model,
       sourceUrl: url,
+      relevanceScore: draft.relevanceScore,
+      relevanceReason: draft.relevanceReason,
+      threshold,
+      feedName: feed?.name || null,
     });
   } catch (error) {
     const message =

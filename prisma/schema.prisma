@@ -50,6 +50,7 @@ model Post {
   excerpt        String?        @db.Text
   galleryImages  String?        @db.Text
   featureImage   String
+  sourceUrl      String?        @db.Text
   tags           String?
   status         PostStatus     @default(DRAFT)
   isBreaking     Boolean        @default(false)
@@ -66,6 +67,7 @@ model Post {
   @@index([status, placement, updatedAt])
   @@index([status, isBreaking, updatedAt])
   @@index([authorId])
+  @@index([sourceUrl])
 }
 
 model Category {
@@ -86,12 +88,15 @@ model Subcategory {
 }
 
 model NewsFeed {
-  id        Int      @id @default(autoincrement())
-  name      String
-  url       String   @unique
-  enabled   Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id              Int      @id @default(autoincrement())
+  name            String
+  url             String   @unique
+  enabled         Boolean  @default(true)
+  includeKeywords String?  @db.Text
+  excludeKeywords String?  @db.Text
+  minRelevance    Int      @default(60)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 }
 
 model LiveScore {

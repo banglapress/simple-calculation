@@ -5,6 +5,12 @@ export type RSSItem = {
   publishedAt: string | null;
 };
 
+export type RSSFilterResult = {
+  items: RSSItem[];
+  total: number;
+  excluded: number;
+};
+
 function decodeXml(value: string) {
   return value
     .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1")
@@ -44,6 +50,44 @@ function cleanDescription(value: string) {
     .slice(0, 2000);
 }
 
+function parseKeywords(value?: string | null) {
+  return String(value || "")
+    .split(/[\n,;]+/)
+    .map((item) => item.trim().toLocaleLowerCase("bn-BD"))
+    .filter(Boolean);
+}
+
+export function filterRSSItems(
+  items: RSSItem[],
+  includeKeywords?: string | null,
+  excludeKeywords?: string | null
+): RSSFilterResult {
+  const includes = parseKeywords(includeKeywords);
+  const excludes = parseKeywords(excludeKeywords);
+
+  const filtered = items.filter((item) => {
+    const haystack = [item.title, item.description, item.link]
+      .join(" ")
+      .toLocaleLowerCase("bn-BD");
+
+    if (excludes.some((keyword) => haystack.includes(keyword))) {
+      return false;
+    }
+
+    if (includes.length && !includes.some((keyword) => haystack.includes(keyword))) {
+      return false;
+    }
+
+    return true;
+  });
+
+  return {
+    items: filtered,
+    total: items.length,
+    excluded: items.length - filtered.length,
+  };
+}
+
 export async function fetchRSSFeed(url: string): Promise<RSSItem[]> {
   const response = await fetch(url, {
     headers: {
@@ -62,7 +106,9 @@ export async function fetchRSSFeed(url: string): Promise<RSSItem[]> {
   const xml = await response.text();
   const items: RSSItem[] = [];
 
-  const rssBlocks = xml.match(/<item(?:\s[^>]*)?>[\s\S]*?<\/item>/gi) || [];
+  const rssBlocks =
+    xml.match(/<item(?:\s[^>]*)?>[\s\S]*?<\/item>/gi) || [];
+
   for (const block of rssBlocks.slice(0, 30)) {
     const title = tagValue(block, "title");
     const link = tagValue(block, "link");
@@ -92,6 +138,7 @@ export async function fetchRSSFeed(url: string): Promise<RSSItem[]> {
 
   const entryBlocks =
     xml.match(/<entry(?:\s[^>]*)?>[\s\S]*?<\/entry>/gi) || [];
+
   for (const block of entryBlocks.slice(0, 30)) {
     const title = tagValue(block, "title");
     const link = atomLink(block);

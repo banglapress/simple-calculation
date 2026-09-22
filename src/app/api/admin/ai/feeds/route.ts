@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { prisma } from "@/lib/prisma";
-import { fetchRSSFeed } from "@/lib/rss";
+import { fetchRSSFeed, filterRSSItems } from "@/lib/rss";
 
 type AuthSession = {
   user?: {
@@ -15,6 +15,20 @@ function allowed(session: AuthSession) {
     session?.user?.role === "ADMIN" ||
     session?.user?.role === "EDITOR"
   );
+}
+
+function normalizeKeywords(value: unknown) {
+  return String(value || "")
+    .split(/[\n,;]+/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .join("\n");
+}
+
+function normalizeMinRelevance(value: unknown) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return 60;
+  return Math.min(100, Math.max(0, Math.round(number)));
 }
 
 export async function GET() {
@@ -40,6 +54,9 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const name = String(body.name || "").trim();
     const url = String(body.url || "").trim();
+    const includeKeywords = normalizeKeywords(body.includeKeywords);
+    const excludeKeywords = normalizeKeywords(body.excludeKeywords);
+    const minRelevance = normalizeMinRelevance(body.minRelevance);
 
     if (!name || !url) {
       return NextResponse.json(
@@ -51,7 +68,13 @@ export async function POST(req: NextRequest) {
     new URL(url);
 
     const feed = await prisma.newsFeed.create({
-      data: { name, url },
+      data: {
+        name,
+        url,
+        includeKeywords: includeKeywords || null,
+        excludeKeywords: excludeKeywords || null,
+        minRelevance,
+      },
     });
 
     return NextResponse.json(feed, { status: 201 });
@@ -104,11 +127,34 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ message: "Invalid feed id" }, { status: 400 });
   }
 
-  const enabled = Boolean(body.enabled);
+  const data: {
+    enabled?: boolean;
+    includeKeywords?: string | null;
+    excludeKeywords?: string | null;
+    minRelevance?: number;
+  } = {};
+
+  if ("enabled" in body) {
+    data.enabled = Boolean(body.enabled);
+  }
+
+  if ("includeKeywords" in body) {
+    const value = normalizeKeywords(body.includeKeywords);
+    data.includeKeywords = value || null;
+  }
+
+  if ("excludeKeywords" in body) {
+    const value = normalizeKeywords(body.excludeKeywords);
+    data.excludeKeywords = value || null;
+  }
+
+  if ("minRelevance" in body) {
+    data.minRelevance = normalizeMinRelevance(body.minRelevance);
+  }
 
   const feed = await prisma.newsFeed.update({
     where: { id },
-    data: { enabled },
+    data,
   });
 
   return NextResponse.json(feed);
@@ -129,15 +175,21 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ message: "Feed not found" }, { status: 404 });
     }
 
-    const items = await fetchRSSFeed(feed.url);
+    const rawItems = await fetchRSSFeed(feed.url);
+    const filtered = filterRSSItems(
+      rawItems,
+      feed.includeKeywords,
+      feed.excludeKeywords
+    );
 
     return NextResponse.json({
-      feed: {
-        id: feed.id,
-        name: feed.name,
-        url: feed.url,
+      feed,
+      items: filtered.items,
+      stats: {
+        total: filtered.total,
+        included: filtered.items.length,
+        excluded: filtered.excluded,
       },
-      items,
     });
   } catch (error: unknown) {
     const message =
