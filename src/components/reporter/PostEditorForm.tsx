@@ -6,8 +6,10 @@ import { useState, useEffect, FormEvent, ChangeEvent } from "react";
 import axios from "axios";
 import dynamic from "next/dynamic";
 
-const LexicalEditor = dynamic(() => import("@/components/editor/LexicalEditor"), { ssr: false });
-
+const LexicalEditor = dynamic(
+  () => import("@/components/editor/LexicalEditor"),
+  { ssr: false }
+);
 
 interface Subcategory {
   id: number;
@@ -22,7 +24,7 @@ interface Category {
 
 export default function PostEditorForm() {
   const [title, setTitle] = useState("");
-  const [content, setContent] = useState(""); // Later to be replaced with Lexical
+  const [content, setContent] = useState("");
   const [featureImage, setFeatureImage] = useState<File | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [categoryId, setCategoryId] = useState("");
@@ -31,18 +33,20 @@ export default function PostEditorForm() {
   const [tags, setTags] = useState("");
   const [status, setStatus] = useState<"DRAFT" | "PENDING">("DRAFT");
   const [message, setMessage] = useState("");
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    axios.get<Category[]>("/api/admin/categories").then((res) => {
-      setCategories(res.data);
-    });
+    axios
+      .get<Category[]>("/api/admin/categories")
+      .then((res) => setCategories(res.data))
+      .catch(() => setMessage("❌ ক্যাটাগরি লোড করা যায়নি"));
   }, []);
 
   const handleCategoryChange = (id: string) => {
     setCategoryId(id);
     const selected = categories.find((c) => String(c.id) === id);
     setSubcategories(selected?.subcategories || []);
-    setSubcategoryId(""); // Reset subcategory
+    setSubcategoryId("");
   };
 
   const handleImageUpload = async (): Promise<string | null> => {
@@ -56,48 +60,63 @@ export default function PostEditorForm() {
       body: formData,
     });
 
+    if (!res.ok) throw new Error("Image upload failed");
+
     const data = await res.json();
     return data.url || null;
   };
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const uploadedUrl = await handleImageUpload();
+    setSaving(true);
+    setMessage("");
 
     try {
+      const uploadedUrl = await handleImageUpload();
+
       await axios.post("/api/posts", {
         title,
         content,
-        categoryId,
-        subcategoryId,
+        categoryIds: categoryId ? [Number(categoryId)] : [],
+        subcategoryIds: subcategoryId ? [Number(subcategoryId)] : [],
         tags,
         status,
         featureImage: uploadedUrl || "",
       });
 
-      setMessage("✅ পোস্ট সংরক্ষিত হয়েছে");
-    } catch {
-      setMessage("❌ সমস্যা হয়েছে");
+      setMessage(
+        status === "DRAFT"
+          ? "✅ পোস্ট খসড়া হিসেবে সংরক্ষিত হয়েছে"
+          : "✅ পোস্ট সম্পাদকের কাছে পাঠানো হয়েছে"
+      );
+    } catch (error) {
+      const responseMessage = axios.isAxiosError(error)
+        ? error.response?.data?.message
+        : null;
+      setMessage("❌ " + (responseMessage || "সমস্যা হয়েছে। আবার চেষ্টা করুন।"));
+    } finally {
+      setSaving(false);
     }
   };
 
   return (
     <form
       onSubmit={handleSubmit}
-      className="space-y-4 bg-white p-4 rounded shadow"
+      className="space-y-5 bg-white p-5 rounded-xl shadow-sm border"
     >
       <input
         type="text"
         placeholder="শিরোনাম"
-        className="w-full border p-2 rounded"
+        className="w-full border p-3 rounded-lg"
         value={title}
         onChange={(e: ChangeEvent<HTMLInputElement>) => setTitle(e.target.value)}
+        required
       />
 
       <LexicalEditor onChange={setContent} />
 
       <div>
-        <label>📸 ফিচার ছবি:</label>
+        <label className="block font-medium mb-2">📸 ফিচার ছবি</label>
         <input
           type="file"
           accept="image/*"
@@ -107,64 +126,83 @@ export default function PostEditorForm() {
         />
       </div>
 
-      <select
-        value={categoryId}
-        onChange={(e: ChangeEvent<HTMLSelectElement>) =>
-          handleCategoryChange(e.target.value)
-        }
-        className="w-full border p-2"
-      >
-        <option value="">-- ক্যাটাগরি নির্বাচন করুন --</option>
-        {categories.map((cat) => (
-          <option key={cat.id} value={cat.id}>
-            {cat.name}
-          </option>
-        ))}
-      </select>
+      <div>
+        <label className="block font-medium mb-2">📂 ক্যাটাগরি</label>
+        <select
+          value={categoryId}
+          onChange={(e: ChangeEvent<HTMLSelectElement>) =>
+            handleCategoryChange(e.target.value)
+          }
+          className="w-full border p-3 rounded-lg"
+          required
+        >
+          <option value="">-- ক্যাটাগরি নির্বাচন করুন --</option>
+          {categories.map((cat) => (
+            <option key={cat.id} value={cat.id}>
+              {cat.name}
+            </option>
+          ))}
+        </select>
+        <p className="text-xs text-gray-500 mt-1">
+          ক্যাটাগরি তৈরি বা পরিবর্তন করতে অ্যাডমিনের ক্যাটাগরি ম্যানেজার ব্যবহার করুন।
+        </p>
+      </div>
 
-      {subcategories.length > 0 && (
+      <div>
+        <label className="block font-medium mb-2">🧩 সাবক্যাটাগরি</label>
         <select
           value={subcategoryId}
           onChange={(e: ChangeEvent<HTMLSelectElement>) =>
             setSubcategoryId(e.target.value)
           }
-          className="w-full border p-2"
+          className="w-full border p-3 rounded-lg"
+          disabled={!categoryId || subcategories.length === 0}
         >
-          <option value="">-- সাবক্যাটাগরি --</option>
+          <option value="">
+            {!categoryId
+              ? "-- আগে ক্যাটাগরি নির্বাচন করুন --"
+              : subcategories.length
+              ? "-- সাবক্যাটাগরি নির্বাচন করুন --"
+              : "-- এই ক্যাটাগরিতে সাবক্যাটাগরি নেই --"}
+          </option>
           {subcategories.map((sub) => (
             <option key={sub.id} value={sub.id}>
               {sub.name}
             </option>
           ))}
         </select>
-      )}
+      </div>
 
       <input
         type="text"
         placeholder="ট্যাগ (কমা দিয়ে আলাদা করুন)"
         value={tags}
         onChange={(e: ChangeEvent<HTMLInputElement>) => setTags(e.target.value)}
-        className="w-full border p-2 rounded"
+        className="w-full border p-3 rounded-lg"
       />
 
-      <div className="flex gap-4">
+      <div className="flex gap-3">
         <button
           type="submit"
           onClick={() => setStatus("DRAFT")}
-          className="bg-gray-600 text-white px-4 py-2 rounded"
+          disabled={saving}
+          className="bg-gray-700 disabled:opacity-50 text-white px-5 py-2.5 rounded-lg"
         >
-          খসড়া সংরক্ষণ
+          {saving && status === "DRAFT" ? "সংরক্ষণ হচ্ছে..." : "খসড়া সংরক্ষণ"}
         </button>
         <button
           type="submit"
           onClick={() => setStatus("PENDING")}
-          className="bg-blue-600 text-white px-4 py-2 rounded"
+          disabled={saving}
+          className="bg-blue-600 disabled:opacity-50 text-white px-5 py-2.5 rounded-lg"
         >
-          সম্পাদকের জন্য পাঠান
+          {saving && status === "PENDING"
+            ? "পাঠানো হচ্ছে..."
+            : "সম্পাদকের জন্য পাঠান"}
         </button>
       </div>
 
-      {message && <p className="text-green-600">{message}</p>}
+      {message && <p className="text-sm text-gray-700">{message}</p>}
     </form>
   );
 }
