@@ -233,6 +233,7 @@ const publicPostSelect = {
   title: true,
   content: true,
   featureImage: true,
+  galleryImages: true,
   tags: true,
   status: true,
   createdAt: true,
