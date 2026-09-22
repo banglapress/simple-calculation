@@ -212,3 +212,34 @@ const getCachedLiveScore = unstable_cache(
 export function getLiveScore() {
   return getCachedLiveScore();
 }
+
+
+function getCachedRelatedPosts(categoryId: number, postId: string) {
+  return unstable_cache(
+    async () =>
+      prisma.post.findMany({
+        where: {
+          status: "PUBLISHED",
+          categories: { some: { id: categoryId } },
+          id: { not: postId },
+        },
+        orderBy: { updatedAt: "desc" },
+        take: 6,
+        select: {
+          id: true,
+          title: true,
+          featureImage: true,
+          categories: { select: { slug: true } },
+          subcategories: { select: { slug: true } },
+        },
+      }),
+    ["public-related-posts", String(categoryId), postId],
+    {
+      revalidate: HOME_REVALIDATE_SECONDS,
+    }
+  )();
+}
+
+export function getRelatedPosts(categoryId: number, postId: string) {
+  return getCachedRelatedPosts(categoryId, postId);
+}
