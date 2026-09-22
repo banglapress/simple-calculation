@@ -9,7 +9,9 @@ function allowed(session: { user?: { role?: string | null } | null } | null) {
 
 export async function GET() {
   const session = await getServerSession(authOptions);
-  if (!allowed(session)) return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+  if (!allowed(session)) {
+    return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+  }
 
   const stories = await prisma.deskStory.findMany({
     orderBy: { updatedAt: "desc" },
@@ -28,20 +30,23 @@ export async function GET() {
       lastError: true,
       categoryId: true,
       updatedAt: true,
-      category: { select: { id: true, name: true, slug: true } },
-      post: { select: { id: true, title: true, status: true, facebookStatus: true } },
-      sources: {
-        orderBy: { createdAt: "asc" },
-        take: 6,
-        include: { feed: { select: { name: true } } },
+      category: {
+        select: { id: true, name: true, slug: true },
       },
-    },
-  });
-      post: { select: { id: true, title: true, status: true, facebookStatus: true } },
+      post: {
+        select: {
+          id: true,
+          title: true,
+          status: true,
+          facebookStatus: true,
+        },
+      },
       sources: {
         orderBy: { createdAt: "asc" },
         take: 6,
-        include: { feed: { select: { name: true } } },
+        include: {
+          feed: { select: { name: true } },
+        },
       },
     },
   });
