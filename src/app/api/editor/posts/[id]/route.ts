@@ -1,12 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-// ✅ Correct GET handler
+function makeExcerpt(content: string) {
+  return content
+    .replace(/<[^>]+>/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 180);
+}
+
 export async function GET(
   req: NextRequest,
   context: { params: { id: string } }
 ) {
-  const id = context.params.id; // ✅ Access params via context
+  const id = context.params.id;
 
   const post = await prisma.post.findUnique({
     where: { id },
@@ -19,12 +26,11 @@ export async function GET(
   return NextResponse.json(post);
 }
 
-// ✅ Correct PUT handler
 export async function PUT(
   req: NextRequest,
   context: { params: { id: string } }
 ) {
-  const id = context.params.id; // ✅ Same fix here
+  const id = context.params.id;
 
   const {
     title,
@@ -44,6 +50,7 @@ export async function PUT(
     data: {
       title,
       content,
+      excerpt: makeExcerpt(content ?? ""),
       tags,
       status,
       placement,
