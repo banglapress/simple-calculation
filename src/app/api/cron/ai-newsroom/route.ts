@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { runNewsroom } from "@/lib/desk-newsroom";
 
 export const runtime = "nodejs";
+export const maxDuration = 300;
 
 export async function POST(req: NextRequest) {
   const secret = String(process.env.NEWSROOM_CRON_SECRET || "").trim();
