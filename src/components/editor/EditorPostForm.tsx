@@ -41,6 +41,7 @@ interface Post {
   placement: string;
   isBreaking?: boolean;
   facebookCaption?: string | null;
+  facebookImage?: string | null;
   facebookAutoPost?: boolean;
   facebookStatus?: string;
   facebookError?: string | null;
@@ -268,24 +269,163 @@ export default function EditorPostForm({ postId }: { postId: string }) {
         </div>
       )}
 
-      <div className="border rounded-xl p-4 bg-blue-50 space-y-3">
+      <div className="border rounded-xl p-4 bg-blue-50 space-y-4">
         <div>
-          <p className="font-semibold">📘 Facebook Auto Post</p>
+          <p className="font-semibold">📘 Facebook Publishing</p>
           <p className="text-xs text-gray-600 mt-1">
-            পোস্ট Published করলে এই caption ও feature image দিয়ে Facebook Page-এ পোস্ট করার চেষ্টা করবে।
+            Website-এর feature image আলাদা থাকবে। Facebook-এর জন্য KhelaTV-branded 1200×630 photo card তৈরি করা হবে।
           </p>
         </div>
 
-        <textarea
-          value={post.facebookCaption || ""}
-          onChange={(e) =>
-            setPost({ ...post, facebookCaption: e.target.value })
-          }
-          className="w-full min-h-28 border p-3 rounded-lg bg-white"
-          placeholder="Facebook caption"
-        />
+        <div className="grid lg:grid-cols-2 gap-4">
+          <div className="space-y-3">
+            <textarea
+              value={post.facebookCaption || ""}
+              onChange={(e) =>
+                setPost({ ...post, facebookCaption: e.target.value })
+              }
+              className="w-full min-h-28 border p-3 rounded-lg bg-white"
+              placeholder="Facebook caption"
+            />
 
-        <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    const response = await axios.post(
+                      "/api/editor/posts/" + postId + "/facebook-caption"
+                    );
+                    setPost({ ...post, facebookCaption: response.data.caption });
+                  } catch (error) {
+                    setMessage(
+                      "❌ " +
+                        (axios.isAxiosError(error)
+                          ? error.response?.data?.message ||
+                            "Facebook caption তৈরি করা যায়নি"
+                          : "Facebook caption তৈরি করা যায়নি")
+                    );
+                  }
+                }}
+                className="border bg-white px-3 py-2 rounded-lg text-sm"
+              >
+                ✨ Caption তৈরি করুন
+              </button>
+
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    setMessage("⏳ Facebook photo card তৈরি হচ্ছে...");
+                    const response = await axios.post(
+                      "/api/editor/posts/" + postId + "/facebook-card"
+                    );
+                    setPost({
+                      ...post,
+                      facebookImage: response.data.facebookImage,
+                      facebookStatus: response.data.facebookStatus,
+                      facebookError: null,
+                    });
+                    setMessage("✅ Facebook photo card তৈরি হয়েছে");
+                  } catch (error) {
+                    setMessage(
+                      "❌ " +
+                        (axios.isAxiosError(error)
+                          ? error.response?.data?.message ||
+                            "Facebook photo card তৈরি করা যায়নি"
+                          : "Facebook photo card তৈরি করা যায়নি")
+                    );
+                  }
+                }}
+                className="bg-white border px-3 py-2 rounded-lg text-sm"
+              >
+                🖼️ Photo Card তৈরি করুন
+              </button>
+
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    const response = await axios.post(
+                      "/api/editor/posts/" + postId + "/facebook-publish"
+                    );
+                    if (response.data.published) {
+                      setPost({
+                        ...post,
+                        facebookStatus: "PUBLISHED",
+                        facebookError: null,
+                      });
+                      setMessage("✅ Facebook Page-এ পোস্ট হয়েছে");
+                    } else {
+                      setPost({
+                        ...post,
+                        facebookStatus: "FAILED",
+                        facebookError:
+                          response.data.error || "Facebook publish হয়নি",
+                      });
+                      setMessage(
+                        "❌ " + (response.data.error || "Facebook publish হয়নি")
+                      );
+                    }
+                  } catch (error) {
+                    setMessage(
+                      "❌ " +
+                        (axios.isAxiosError(error)
+                          ? error.response?.data?.message ||
+                            "Facebook publish করা যায়নি"
+                          : "Facebook publish করা যায়নি")
+                    );
+                  }
+                }}
+                disabled={post.status !== "PUBLISHED" || !post.facebookImage}
+                className="bg-blue-700 disabled:opacity-40 text-white px-3 py-2 rounded-lg text-sm"
+              >
+                📤 Facebook-এ এখনই Publish
+              </button>
+
+              <label className="inline-flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={Boolean(post.facebookAutoPost)}
+                  onChange={(e) =>
+                    setPost({ ...post, facebookAutoPost: e.target.checked })
+                  }
+                />
+                Website publish হলে Facebook-এ auto-post
+              </label>
+            </div>
+
+            <p className="text-xs text-gray-600">
+              Status: {post.facebookStatus || "NONE"}
+              {post.status !== "PUBLISHED"
+                ? " · Facebook-এ manual publish করতে আগে Website article Published করুন"
+                : ""}
+            </p>
+          </div>
+
+          <div className="border rounded-lg bg-white p-3">
+            <p className="text-sm font-medium mb-2">Facebook Photo Card</p>
+            {post.facebookImage ? (
+              <Image
+                src={post.facebookImage}
+                alt="Facebook Photo Card"
+                width={600}
+                height={315}
+                className="w-full rounded-lg shadow"
+              />
+            ) : (
+              <div className="aspect-[1200/630] flex items-center justify-center rounded-lg bg-gray-100 text-sm text-gray-500 text-center p-4">
+                Photo card এখনও তৈরি হয়নি।<br />
+                আগে Feature Image যোগ করে “Photo Card তৈরি করুন” চাপুন।
+              </div>
+            )}
+          </div>
+        </div>
+
+        {post.facebookError && (
+          <p className="text-xs text-red-600">{post.facebookError}</p>
+        )}
+      </div>
           <button
             type="button"
             onClick={async () => {
