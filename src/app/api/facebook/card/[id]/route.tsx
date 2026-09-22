@@ -48,9 +48,9 @@ function absoluteImageUrl(value: string | null | undefined) {
 }
 
 export async function GET(
-  _request: Request,
-  context: { params: Promise<{ id: string }> }
+  _context: { params: Promise<{ id: string }> }
 ) {
+  const context = _context;
   const { id } = await context.params;
 
   const post = await prisma.post.findUnique({
