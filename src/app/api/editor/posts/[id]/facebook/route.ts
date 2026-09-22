@@ -4,7 +4,6 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { publishPostToFacebook } from "@/lib/post-publishing";
 
 export async function POST(
-  _req: Request,
   context: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
