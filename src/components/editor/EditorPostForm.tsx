@@ -562,7 +562,7 @@ export default function EditorPostForm({ postId }: { postId: string }) {
                     );
                   }
                 }}
-                disabled={post.status !== "PUBLISHED" || !post.facebookImage}
+                disabled={post.status !== "PUBLISHED" || !post.featureImage}
                 className="bg-blue-700 disabled:opacity-40 text-white px-3 py-2 rounded-lg text-sm"
               >
                 📤 Facebook-এ এখনই Publish
