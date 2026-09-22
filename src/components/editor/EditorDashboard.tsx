@@ -55,8 +55,44 @@ export default function EditorDashboard() {
     const confirmPublish = confirm("আপনি কি এই পোস্টটি প্রকাশ করতে চান?");
     if (!confirmPublish) return;
 
-    await axios.patch(`/api/editor/posts?id=${id}`, { status: "PUBLISHED" });
+    const response = await axios.patch(`/api/editor/posts?id=${id}`, {
+      status: "PUBLISHED",
+    });
+
+    if (response.data?.facebook?.published) {
+      alert("✅ Article প্রকাশিত এবং Facebook-এও প্রকাশ হয়েছে");
+    } else if (response.data?.facebook?.attempted && response.data?.facebook?.error) {
+      alert(
+        "✅ Article প্রকাশিত হয়েছে।\n❌ Facebook: " +
+          response.data.facebook.error
+      );
+    }
+
     fetchPosts();
+  };
+
+  const publishFacebook = async (id: string) => {
+    try {
+      const response = await axios.post("/api/editor/posts/" + id + "/facebook");
+      if (response.data?.published) {
+        alert("✅ Facebook-এ প্রকাশ হয়েছে");
+      } else {
+        alert(
+          "❌ Facebook-এ প্রকাশ হয়নি: " +
+            (response.data?.error || "অজানা সমস্যা")
+        );
+      }
+      fetchPosts();
+    } catch (error) {
+      alert(
+        "❌ " +
+          (axios.isAxiosError(error)
+            ? error.response?.data?.error ||
+              error.response?.data?.message ||
+              "Facebook publish failed"
+            : "Facebook publish failed")
+      );
+    }
   };
 
   return (
@@ -177,6 +213,15 @@ export default function EditorDashboard() {
                 className="text-green-600 underline"
               >
                 ✅ প্রকাশ করুন
+              </button>
+            )}
+
+            {post.status === "PUBLISHED" && post.facebookStatus !== "PUBLISHED" && (
+              <button
+                onClick={() => publishFacebook(post.id)}
+                className="text-blue-700 underline"
+              >
+                📘 Facebook-এ প্রকাশ
               </button>
             )}
           </div>
