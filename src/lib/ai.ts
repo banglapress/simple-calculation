@@ -1,9 +1,25 @@
+type GeminiJson = Record<string, unknown>;
+
 type GeminiResult = {
-  json: any;
+  json: GeminiJson;
   model: string;
   inputTokens: number | null;
   outputTokens: number | null;
   durationMs: number;
+};
+
+type GeminiPayload = {
+  candidates?: Array<{
+    content?: {
+      parts?: Array<{
+        text?: string | null;
+      }>;
+    };
+  }>;
+  usageMetadata?: {
+    promptTokenCount?: number;
+    candidatesTokenCount?: number;
+  };
 };
 
 const DEFAULT_MODEL = "gemini-3.5-flash-lite";
@@ -166,28 +182,36 @@ async function generateStructured(
       );
     }
 
-    const payload = JSON.parse(raw);
+    const payload = JSON.parse(raw) as GeminiPayload;
     const text =
-      payload?.candidates?.[0]?.content?.parts
-        ?.map((part: any) => part.text || "")
+      payload.candidates?.[0]?.content?.parts
+        ?.map((part) => part.text || "")
         .join("") || "";
 
     if (!text.trim()) {
       throw new Error("Gemini returned empty output");
     }
 
-    let json: any;
+    let parsed: unknown;
     try {
-      json = JSON.parse(text);
+      parsed = JSON.parse(text);
     } catch {
       throw new Error("Gemini returned invalid JSON");
     }
 
+    if (
+      typeof parsed !== "object" ||
+      parsed === null ||
+      Array.isArray(parsed)
+    ) {
+      throw new Error("Gemini returned an invalid JSON object");
+    }
+
     return {
-      json,
+      json: parsed as GeminiJson,
       model: selectedModel,
-      inputTokens: payload?.usageMetadata?.promptTokenCount ?? null,
-      outputTokens: payload?.usageMetadata?.candidatesTokenCount ?? null,
+      inputTokens: payload.usageMetadata?.promptTokenCount ?? null,
+      outputTokens: payload.usageMetadata?.candidatesTokenCount ?? null,
       durationMs: Date.now() - started,
     };
   } catch (error) {
