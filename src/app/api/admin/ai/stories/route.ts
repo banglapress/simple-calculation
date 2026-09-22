@@ -14,8 +14,29 @@ export async function GET() {
   const stories = await prisma.deskStory.findMany({
     orderBy: { updatedAt: "desc" },
     take: 80,
-    include: {
+    select: {
+      id: true,
+      titleHint: true,
+      status: true,
+      sourceCount: true,
+      relevanceScore: true,
+      relevanceReason: true,
+      researchStatus: true,
+      articleStatus: true,
+      articleWarnings: true,
+      warning: true,
+      lastError: true,
+      categoryId: true,
+      updatedAt: true,
       category: { select: { id: true, name: true, slug: true } },
+      post: { select: { id: true, title: true, status: true, facebookStatus: true } },
+      sources: {
+        orderBy: { createdAt: "asc" },
+        take: 6,
+        include: { feed: { select: { name: true } } },
+      },
+    },
+  });
       post: { select: { id: true, title: true, status: true, facebookStatus: true } },
       sources: {
         orderBy: { createdAt: "asc" },
