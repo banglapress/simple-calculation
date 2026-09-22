@@ -29,7 +29,7 @@ function tagValue(block: string, tag: string) {
 
 function atomLink(block: string) {
   const href = block.match(
-    /<link[^>]+href=["']([^"']+)["'][^>]*/?>/i
+    /<link[^>]+href=["']([^"']+?)["'][^>]*\/>/i
   );
   return href ? decodeXml(href[1]) : tagValue(block, "link");
 }
