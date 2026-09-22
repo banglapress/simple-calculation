@@ -41,7 +41,6 @@ interface Post {
   placement: string;
   isBreaking?: boolean;
   facebookCaption?: string | null;
-  facebookImage?: string | null;
   facebookAutoPost?: boolean;
   facebookStatus?: string;
   facebookError?: string | null;
@@ -73,153 +72,6 @@ function parseGallery(value?: string | null) {
   } catch {
     return [];
   }
-}
-
-async function loadCardImage(url: string) {
-  const image = new window.Image();
-  image.crossOrigin = "anonymous";
-  image.src = url + (url.includes("?") ? "&" : "?") + "cb=" + Date.now();
-
-  await new Promise<void>((resolve, reject) => {
-    image.onload = () => resolve();
-    image.onerror = () => reject(new Error("Feature image browser-এ load হয়নি।"));
-  });
-
-  return image;
-}
-
-async function ensureCardFont() {
-  try {
-    const font = new FontFace(
-      "KhelaTVNotoSerif",
-      "url(/fonts/NotoSerifBengali.ttf)"
-    );
-    await font.load();
-    const fontSet = document.fonts as unknown as {
-      add?: (loadedFont: FontFace) => void;
-    };
-    fontSet.add?.(font);
-  } catch {
-    // Browser can fall back to a Bengali-capable system font.
-  }
-}
-
-function wrapCardTitle(
-  ctx: CanvasRenderingContext2D,
-  title: string,
-  maxWidth: number,
-  maxLines = 3
-) {
-  const words = title.replace(/\s+/g, " ").trim().split(" ");
-  const lines: string[] = [];
-  let current = "";
-
-  for (const word of words) {
-    const next = current ? current + " " + word : word;
-    if (ctx.measureText(next).width > maxWidth && current) {
-      lines.push(current);
-      current = word;
-      if (lines.length === maxLines) break;
-    } else {
-      current = next;
-    }
-  }
-
-  if (lines.length < maxLines && current) lines.push(current);
-
-  if (lines.length === maxLines && words.length > 0) {
-    const last = lines[maxLines - 1] || "";
-    if (last && !title.includes(last + " ")) {
-      lines[maxLines - 1] = last.slice(0, Math.max(0, last.length - 1)) + "…";
-    }
-  }
-
-  return lines;
-}
-
-async function buildFacebookCardFile(post: Post) {
-  if (!post.featureImage?.trim()) {
-    throw new Error("আগে Feature Image যোগ করুন।");
-  }
-
-  await ensureCardFont();
-  const image = await loadCardImage(post.featureImage);
-
-  const canvas = document.createElement("canvas");
-  canvas.width = 1200;
-  canvas.height = 630;
-
-  const ctx = canvas.getContext("2d");
-  if (!ctx) throw new Error("Canvas পাওয়া যায়নি।");
-
-  const scale = Math.max(1200 / image.width, 630 / image.height);
-  const width = image.width * scale;
-  const height = image.height * scale;
-  const x = (1200 - width) / 2;
-  const y = (630 - height) / 2;
-
-  ctx.drawImage(image, x, y, width, height);
-
-  const gradient = ctx.createLinearGradient(0, 0, 0, 630);
-  gradient.addColorStop(0, "rgba(0,0,0,0.10)");
-  gradient.addColorStop(0.42, "rgba(0,0,0,0.24)");
-  gradient.addColorStop(1, "rgba(0,0,0,0.90)");
-  ctx.fillStyle = gradient;
-  ctx.fillRect(0, 0, 1200, 630);
-
-  ctx.fillStyle = "#ffffff";
-  ctx.beginPath();
-  ctx.roundRect(44, 34, 150, 48, 24);
-  ctx.fill();
-
-  ctx.fillStyle = "#111827";
-  ctx.font = '700 25px "KhelaTVNotoSerif", "Noto Serif Bengali", sans-serif';
-  ctx.fillText("KhelaTV", 64, 66);
-
-  const category =
-    post.categories?.[0]?.name ||
-    "খেলা";
-
-  ctx.fillStyle = "rgba(0,0,0,0.65)";
-  const categoryWidth = Math.min(
-    250,
-    Math.max(110, ctx.measureText(category).width + 34)
-  );
-  ctx.beginPath();
-  ctx.roundRect(210, 34, categoryWidth, 48, 24);
-  ctx.fill();
-
-  ctx.fillStyle = "#ffffff";
-  ctx.font = '600 22px "KhelaTVNotoSerif", "Noto Serif Bengali", sans-serif';
-  ctx.fillText(category, 227, 65);
-
-  ctx.fillStyle = "#ffffff";
-  ctx.font = '700 48px "KhelaTVNotoSerif", "Noto Serif Bengali", sans-serif';
-
-  const lines = wrapCardTitle(ctx, post.title, 1080, 3);
-  const lineHeight = 58;
-  const startY = 630 - 58 - lineHeight * (lines.length - 1) - 34;
-
-  ctx.shadowColor = "rgba(0,0,0,0.55)";
-  ctx.shadowBlur = 10;
-  lines.forEach((line, index) => {
-    ctx.fillText(line, 48, startY + index * lineHeight);
-  });
-  ctx.shadowBlur = 0;
-
-  ctx.fillStyle = "#ffffff";
-  ctx.fillRect(48, 630 - 38, 110, 5);
-
-  const blob = await new Promise<Blob>((resolve, reject) =>
-    canvas.toBlob(
-      (value) =>
-        value ? resolve(value) : reject(new Error("PNG তৈরি করা যায়নি")),
-      "image/png",
-      0.94
-    )
-  );
-
-  return new File([blob], "facebook-card.png", { type: "image/png" });
 }
 
 export default function EditorPostForm({ postId }: { postId: string }) {
@@ -416,198 +268,61 @@ export default function EditorPostForm({ postId }: { postId: string }) {
         </div>
       )}
 
-      <div className="border rounded-xl p-4 bg-blue-50 space-y-4">
+      <div className="border rounded-xl p-4 bg-blue-50 space-y-3">
         <div>
-          <p className="font-semibold">📘 Facebook Publishing</p>
+          <p className="font-semibold">📘 Facebook Auto Post</p>
           <p className="text-xs text-gray-600 mt-1">
-            Website-এর feature image আলাদা থাকবে। Facebook-এর জন্য KhelaTV-branded 1200×630 photo card তৈরি করা হবে।
+            পোস্ট Published করলে এই caption ও feature image দিয়ে Facebook Page-এ পোস্ট করার চেষ্টা করবে।
           </p>
         </div>
 
-        <div className="grid lg:grid-cols-2 gap-4">
-          <div className="space-y-3">
-            <textarea
-              value={post.facebookCaption || ""}
-              onChange={(e) =>
-                setPost({ ...post, facebookCaption: e.target.value })
+        <textarea
+          value={post.facebookCaption || ""}
+          onChange={(e) =>
+            setPost({ ...post, facebookCaption: e.target.value })
+          }
+          className="w-full min-h-28 border p-3 rounded-lg bg-white"
+          placeholder="Facebook caption"
+        />
+
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={async () => {
+              try {
+                const response = await axios.post(
+                  "/api/editor/posts/" + postId + "/facebook-caption"
+                );
+                setPost({ ...post, facebookCaption: response.data.caption });
+              } catch (error) {
+                setMessage(
+                  "❌ " +
+                    (axios.isAxiosError(error)
+                      ? error.response?.data?.message ||
+                        "Facebook caption তৈরি করা যায়নি"
+                      : "Facebook caption তৈরি করা যায়নি")
+                );
               }
-              className="w-full min-h-28 border p-3 rounded-lg bg-white"
-              placeholder="Facebook caption"
+            }}
+            className="border bg-white px-3 py-2 rounded-lg text-sm"
+          >
+            ✨ Caption তৈরি করুন
+          </button>
+
+          <label className="inline-flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={Boolean(post.facebookAutoPost)}
+              onChange={(e) =>
+                setPost({ ...post, facebookAutoPost: e.target.checked })
+              }
             />
+            Publish হলে Facebook-এ auto-post
+          </label>
 
-            <div className="flex flex-wrap items-center gap-3">
-              <button
-                type="button"
-                onClick={async () => {
-                  try {
-                    const response = await axios.post(
-                      "/api/editor/posts/" + postId + "/facebook-caption"
-                    );
-                    setPost({ ...post, facebookCaption: response.data.caption });
-                  } catch (error) {
-                    setMessage(
-                      "❌ " +
-                        (axios.isAxiosError(error)
-                          ? error.response?.data?.message ||
-                            "Facebook caption তৈরি করা যায়নি"
-                          : "Facebook caption তৈরি করা যায়নি")
-                    );
-                  }
-                }}
-                className="border bg-white px-3 py-2 rounded-lg text-sm"
-              >
-                ✨ Caption তৈরি করুন
-              </button>
-
-              <button
-                type="button"
-                onClick={async () => {
-                  if (!post) return;
-
-                  try {
-                    setMessage("⏳ Facebook photo card তৈরি হচ্ছে...");
-
-                    const sourceResponse = await axios.post(
-                      "/api/editor/posts/" + postId + "/facebook-source"
-                    );
-
-                    const preparedFeatureImage = sourceResponse.data.featureImage;
-
-                    if (preparedFeatureImage !== post.featureImage) {
-                      setPost({
-                        ...post,
-                        featureImage: preparedFeatureImage,
-                      });
-                    }
-
-                    const cardPost = {
-                      ...post,
-                      featureImage: preparedFeatureImage,
-                    };
-
-                    const file = await buildFacebookCardFile(cardPost);
-                    const formData = new FormData();
-                    formData.append("file", file);
-
-                    const uploadResponse = await fetch("/api/upload", {
-                      method: "POST",
-                      body: formData,
-                    });
-
-                    if (!uploadResponse.ok) {
-                      throw new Error("Facebook card upload failed");
-                    }
-
-                    const uploadData = await uploadResponse.json();
-
-                    const saveResponse = await axios.post(
-                      "/api/editor/posts/" + postId + "/facebook-image",
-                      { facebookImage: uploadData.url }
-                    );
-
-                    setPost({
-                      ...cardPost,
-                      facebookImage: saveResponse.data.facebookImage,
-                      facebookStatus: "READY",
-                      facebookError: null,
-                    });
-
-                    setMessage("✅ Facebook photo card তৈরি ও সংরক্ষণ হয়েছে");
-                  } catch (error) {
-                    setMessage(
-                      "❌ " +
-                        (axios.isAxiosError(error)
-                          ? error.response?.data?.message ||
-                            "Facebook photo card তৈরি করা যায়নি"
-                          : error instanceof Error
-                            ? error.message
-                            : "Facebook photo card তৈরি করা যায়নি")
-                    );
-                  }
-                }}
-                className="bg-white border px-3 py-2 rounded-lg text-sm"
-              >
-                🖼️ Photo Card তৈরি করুন
-              </button>
-
-              <button
-                type="button"
-                onClick={async () => {
-                  try {
-                    const response = await axios.post(
-                      "/api/editor/posts/" + postId + "/facebook-publish"
-                    );
-                    if (response.data.published) {
-                      setPost({
-                        ...post,
-                        facebookStatus: "PUBLISHED",
-                        facebookError: null,
-                      });
-                      setMessage("✅ Facebook Page-এ পোস্ট হয়েছে");
-                    } else {
-                      setPost({
-                        ...post,
-                        facebookStatus: "FAILED",
-                        facebookError:
-                          response.data.error || "Facebook publish হয়নি",
-                      });
-                      setMessage(
-                        "❌ " + (response.data.error || "Facebook publish হয়নি")
-                      );
-                    }
-                  } catch (error) {
-                    setMessage(
-                      "❌ " +
-                        (axios.isAxiosError(error)
-                          ? error.response?.data?.message ||
-                            "Facebook publish করা যায়নি"
-                          : "Facebook publish করা যায়নি")
-                    );
-                  }
-                }}
-                disabled={post.status !== "PUBLISHED" || !post.featureImage}
-                className="bg-blue-700 disabled:opacity-40 text-white px-3 py-2 rounded-lg text-sm"
-              >
-                📤 Facebook-এ এখনই Publish
-              </button>
-
-              <label className="inline-flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={Boolean(post.facebookAutoPost)}
-                  onChange={(e) =>
-                    setPost({ ...post, facebookAutoPost: e.target.checked })
-                  }
-                />
-                Website publish হলে Facebook-এ auto-post
-              </label>
-            </div>
-
-            <p className="text-xs text-gray-600">
-              Status: {post.facebookStatus || "NONE"}
-              {post.status !== "PUBLISHED"
-                ? " · Facebook-এ manual publish করতে আগে Website article Published করুন"
-                : ""}
-            </p>
-          </div>
-
-          <div className="border rounded-lg bg-white p-3">
-            <p className="text-sm font-medium mb-2">Facebook Photo Card</p>
-            {post.facebookImage ? (
-              <Image
-                src={post.facebookImage}
-                alt="Facebook Photo Card"
-                width={600}
-                height={315}
-                className="w-full rounded-lg shadow"
-              />
-            ) : (
-              <div className="aspect-[1200/630] flex items-center justify-center rounded-lg bg-gray-100 text-sm text-gray-500 text-center p-4">
-                Photo card এখনও তৈরি হয়নি।<br />
-                আগে Feature Image যোগ করে “Photo Card তৈরি করুন” চাপুন।
-              </div>
-            )}
-          </div>
+          <span className="text-xs text-gray-600">
+            Status: {post.facebookStatus || "NONE"}
+          </span>
         </div>
 
         {post.facebookError && (
