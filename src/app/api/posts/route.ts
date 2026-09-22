@@ -3,6 +3,15 @@ import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "../auth/[...nextauth]/route";
 
+const VALID_STATUSES = ["DRAFT", "PENDING", "PUBLISHED"] as const;
+const VALID_PLACEMENTS = [
+  "NONE",
+  "LEAD",
+  "SECOND_LEAD",
+  "EDITORS_PICK",
+  "TRENDING",
+] as const;
+
 function makeExcerpt(content: string) {
   return content
     .replace(/<[^>]+>/g, "")
@@ -21,6 +30,17 @@ function toIdArray(value: unknown, fallback?: unknown) {
   return source
     .map((id) => Number(id))
     .filter((id) => Number.isInteger(id) && id > 0);
+}
+
+function normalizedValue<T extends readonly string[]>(
+  value: unknown,
+  allowed: T,
+  fallback: T[number]
+): T[number] {
+  return typeof value === "string" &&
+    (allowed as readonly string[]).includes(value)
+    ? (value as T[number])
+    : fallback;
 }
 
 export async function POST(req: NextRequest) {
@@ -42,6 +62,8 @@ export async function POST(req: NextRequest) {
     subcategoryId,
     tags,
     status,
+    placement,
+    isBreaking,
   } = body;
 
   const normalizedCategoryIds = toIdArray(categoryIds, categoryId);
@@ -49,18 +71,34 @@ export async function POST(req: NextRequest) {
     subcategoryIds,
     subcategoryId
   );
+  const normalizedStatus = normalizedValue(
+    status,
+    VALID_STATUSES,
+    "DRAFT"
+  );
+  const normalizedPlacement = normalizedValue(
+    placement,
+    VALID_PLACEMENTS,
+    "NONE"
+  );
+  const normalizedBreaking = Boolean(isBreaking);
 
   if (!title?.trim()) {
     return NextResponse.json({ message: "Title is required" }, { status: 400 });
+  }
+
+  if (!normalizedCategoryIds.length) {
+    return NextResponse.json(
+      { message: "একটি category নির্বাচন করুন" },
+      { status: 400 }
+    );
   }
 
   if (normalizedSubcategoryIds.length > 0) {
     const validSubcategories = await prisma.subcategory.findMany({
       where: {
         id: { in: normalizedSubcategoryIds },
-        ...(normalizedCategoryIds.length
-          ? { categoryId: { in: normalizedCategoryIds } }
-          : {}),
+        categoryId: { in: normalizedCategoryIds },
       },
       select: { id: true },
     });
@@ -85,11 +123,13 @@ export async function POST(req: NextRequest) {
   try {
     const post = await prisma.post.create({
       data: {
-        title,
-        content,
+        title: title.trim(),
+        content: content ?? "",
         excerpt: makeExcerpt(content ?? ""),
-        featureImage,
-        status,
+        featureImage: featureImage || "",
+        status: normalizedStatus,
+        placement: normalizedPlacement,
+        isBreaking: normalizedBreaking,
         tags,
         author: { connect: { id: user.id } },
         categories: {
