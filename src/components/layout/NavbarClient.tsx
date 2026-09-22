@@ -3,17 +3,9 @@
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Menu, User, X, ChevronDown, Search } from "lucide-react";
-import { signOut, useSession } from "next-auth/react";
-import Image from "next/image";
+import { Menu, X, ChevronDown, Search } from "lucide-react";
 
 export type Subcategory = {
   id: number;
@@ -36,7 +28,6 @@ export default function NavbarClient({
   const [search, setSearch] = useState("");
   const [mobileOpen, setMobileOpen] = useState(false);
   const router = useRouter();
-  const { data: session, status } = useSession();
   const [expandedCategories, setExpandedCategories] = useState<number[]>([]);
 
   const handleSearch = (e: React.FormEvent) => {
@@ -44,10 +35,6 @@ export default function NavbarClient({
     if (search.trim()) {
       router.push(`/search?q=${encodeURIComponent(search)}`);
     }
-  };
-
-  const handleLogout = async () => {
-    await signOut({ callbackUrl: "/" });
   };
 
   const toggleCategory = (categoryId: number) => {
@@ -120,87 +107,12 @@ export default function NavbarClient({
               </div>
             </form>
 
-            {status === "authenticated" ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger className="hidden md:flex items-center ml-4 space-x-2 p-2 rounded-md hover:bg-gray-100 focus:outline-none">
-                  {session.user?.image ? (
-                    <Image
-                      src={session.user.image}
-                      alt="Profile"
-                      width={32}
-                      height={32}
-                      className="w-8 h-8 rounded-full"
-                    />
-                  ) : (
-                    <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
-                      <User className="w-4 h-4 text-gray-600" />
-                    </div>
-                  )}
-                  <span className="text-sm font-medium text-gray-700">
-                    {session.user?.name || session.user?.email?.split("@")[0]}
-                  </span>
-                  <ChevronDown className="w-4 h-4 text-gray-500" />
-                </DropdownMenuTrigger>
-
-                <DropdownMenuContent className="mt-2 w-48" align="end">
-                  <DropdownMenuItem asChild>
-                    <Link
-                      href="/profile"
-                      className="block px-4 py-2 text-sm text-gray-700 w-full text-left"
-                    >
-                      Profile
-                    </Link>
-                  </DropdownMenuItem>
-
-                  {session.user?.role === "ADMIN" && (
-                    <DropdownMenuItem asChild>
-                      <Link
-                        href="/admin"
-                        className="block px-4 py-2 text-sm text-gray-700 w-full text-left"
-                      >
-                        Admin
-                      </Link>
-                    </DropdownMenuItem>
-                  )}
-
-                  {session.user?.role === "REPORTER" && (
-                    <DropdownMenuItem asChild>
-                      <Link
-                        href="/dashboard/reporter"
-                        className="block px-4 py-2 text-sm text-gray-700 w-full text-left"
-                      >
-                        Dashboard
-                      </Link>
-                    </DropdownMenuItem>
-                  )}
-
-                  {session.user?.role === "EDITOR" && (
-                    <DropdownMenuItem asChild>
-                      <Link
-                        href="/dashboard/editor"
-                        className="block px-4 py-2 text-sm text-gray-700 w-full text-left"
-                      >
-                        Editors Panel
-                      </Link>
-                    </DropdownMenuItem>
-                  )}
-
-                  <DropdownMenuItem
-                    onClick={handleLogout}
-                    className="text-red-600 cursor-pointer"
-                  >
-                    Sign out
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ) : (
-              <Link
-                href="/login"
-                className="hidden md:flex items-center ml-4 px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-red-600 hover:bg-red-700"
-              >
-                Login
-              </Link>
-            )}
+            <Link
+              href="/login"
+              className="hidden md:flex items-center ml-4 px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-red-600 hover:bg-red-700"
+            >
+              Login
+            </Link>
           </div>
         </div>
       </div>
@@ -272,71 +184,13 @@ export default function NavbarClient({
           </nav>
 
           <div className="mt-6 px-4">
-            {status === "authenticated" ? (
-              <div className="pt-4 border-t border-gray-200">
-                <div className="flex items-center space-x-3">
-                  {session.user?.image ? (
-                    <Image
-                      src={session.user.image}
-                      alt="Profile"
-                      width={40}
-                      height={40}
-                      className="w-10 h-10 rounded-full"
-                    />
-                  ) : (
-                    <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
-                      <User className="w-5 h-5 text-gray-600" />
-                    </div>
-                  )}
-
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">
-                      {session.user?.name || session.user?.email}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="mt-3 space-y-1">
-                  <Link
-                    href="/profile"
-                    className="block px-3 py-2 rounded-md text-base font-medium text-gray-600 hover:bg-gray-50"
-                    onClick={() => setMobileOpen(false)}
-                  >
-                    Profile
-                  </Link>
-
-                  {session.user?.role === "ADMIN" && (
-                    <Link
-                      href="/admin"
-                      className="block px-3 py-2 rounded-md text-base font-medium text-gray-600 hover:bg-gray-50"
-                      onClick={() => setMobileOpen(false)}
-                    >
-                      Admin
-                    </Link>
-                  )}
-
-                  <button
-                    onClick={() => {
-                      handleLogout();
-                      setMobileOpen(false);
-                    }}
-                    className="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-red-600 hover:bg-gray-50"
-                  >
-                    Sign out
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                <Link
-                  href="/login"
-                  className="block w-full px-4 py-2 text-center border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700"
-                  onClick={() => setMobileOpen(false)}
-                >
-                  Login
-                </Link>
-              </div>
-            )}
+            <Link
+              href="/login"
+              className="block w-full px-4 py-2 text-center border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700"
+              onClick={() => setMobileOpen(false)}
+            >
+              Login
+            </Link>
           </div>
         </div>
       )}
