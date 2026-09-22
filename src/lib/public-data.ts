@@ -87,7 +87,10 @@ const getCachedCategoryPosts = (slug: string) =>
       prisma.post.findMany({
         where: {
           status: "PUBLISHED",
-          categories: { some: { slug } },
+          OR: [
+            { categories: { some: { slug } } },
+            { subcategories: { some: { category: { slug } } } },
+          ],
         },
         orderBy: { updatedAt: "desc" },
         take: 30,
