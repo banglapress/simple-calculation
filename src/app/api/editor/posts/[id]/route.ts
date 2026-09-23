@@ -27,15 +27,17 @@ function normalizeGallery(value: unknown) {
 
 export async function GET(
   req: NextRequest,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
   if (!allowed(session?.user?.role)) {
     return NextResponse.json({ message: "Forbidden" }, { status: 403 });
   }
 
+  const { id } = await context.params;
+
   const post = await prisma.post.findUnique({
-    where: { id: context.params.id },
+    where: { id },
     include: {
       categories: true,
       subcategories: true,
@@ -59,7 +61,7 @@ export async function GET(
 
 export async function PUT(
   req: NextRequest,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
   if (!allowed(session?.user?.role)) {
@@ -67,7 +69,7 @@ export async function PUT(
   }
 
   const body = await req.json();
-  const id = context.params.id;
+  const { id } = await context.params;
   const {
     title,
     content,
