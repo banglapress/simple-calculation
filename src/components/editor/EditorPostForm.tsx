@@ -91,7 +91,7 @@ export default function EditorPostForm({ postId }: { postId: string }) {
   const [galleryFiles, setGalleryFiles] = useState<File[]>([]);
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
-  const [facebookImageBusy, setFacebookImageBusy] = useState(false);
+  const [facebookImageBusy, setFacebookImageBusy] = useState(false);\n  const [facebookImageUseBusy, setFacebookImageUseBusy] = useState(false);\n  const [cardPreviewVersion, setCardPreviewVersion] = useState(() => Date.now());
 
   useEffect(() => {
     async function fetchData() {
@@ -191,7 +191,7 @@ export default function EditorPostForm({ postId }: { postId: string }) {
       });
 
       setMessage(
-        "✅ Cloudflare দিয়ে Facebook-এর আলাদা AI image তৈরি হয়েছে।"
+        "✅ AI image তৈরি হয়েছে। ছবি পছন্দ হলে “এই ছবি Article Cover হিসেবে ব্যবহার করুন” চাপুন।"
       );
     } catch (error) {
       setMessage(
@@ -203,6 +203,39 @@ export default function EditorPostForm({ postId }: { postId: string }) {
       );
     } finally {
       setFacebookImageBusy(false);
+    }
+  };
+
+  const useFacebookImage = async () => {
+    if (!post?.facebookImageUrl) return;
+
+    setFacebookImageUseBusy(true);
+    setMessage("");
+
+    try {
+      const response = await axios.post(
+        "/api/editor/posts/" + postId + "/use-facebook-image"
+      );
+
+      setPost({
+        ...post,
+        featureImage: response.data.post.featureImage,
+        facebookStatus: response.data.post.facebookStatus,
+        facebookError: null,
+      });
+      setCardPreviewVersion(Date.now());
+      setMessage(
+        "✅ এই AI image-টি Article Cover হিসেবে ব্যবহার করা হয়েছে। এখন এই একই ছবি Facebook Card-এর মূল ছবিও।"
+      );
+    } catch (error) {
+      setMessage(
+        "❌ " +
+          (axios.isAxiosError(error)
+            ? error.response?.data?.message || "AI image-টি Cover হিসেবে সেট করা যায়নি"
+            : "AI image-টি Cover হিসেবে সেট করা যায়নি")
+      );
+    } finally {
+      setFacebookImageUseBusy(false);
     }
   };
 
@@ -366,8 +399,8 @@ export default function EditorPostForm({ postId }: { postId: string }) {
         <div>
           <p className="font-semibold">📘 Facebook Publishing</p>
           <p className="text-xs text-gray-600 mt-1">
-            Facebook-এর জন্য Article feature image-এর বাইরে আলাদা AI image তৈরি করা যাবে।
-            তারপর code-designed KhelaTV photo card সেই image-এর ওপর headline বসিয়ে তৈরি হবে।
+            প্রথমে AI image তৈরি করুন। পছন্দ হলে সেটিকে Article Cover হিসেবে অনুমোদন করুন।
+            অনুমোদিত একই ছবিই তারপর Facebook Photo Card-এর মূল ছবি হিসেবে ব্যবহার হবে।
           </p>
         </div>
 
@@ -403,29 +436,73 @@ export default function EditorPostForm({ postId }: { postId: string }) {
           />
 
           {post.facebookImageUrl ? (
-            <div className="border rounded-lg overflow-hidden">
-              <img
-                src={post.facebookImageUrl}
-                alt="Facebook AI image"
-                className="w-full aspect-video object-cover"
-              />
-            </div>
+            <>
+              <div className="border rounded-lg overflow-hidden">
+                <img
+                  src={post.facebookImageUrl}
+                  alt="Facebook AI image"
+                  className="w-full aspect-[4/5] object-cover"
+                />
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={useFacebookImage}
+                  disabled={facebookImageUseBusy || post.featureImage === post.facebookImageUrl}
+                  className="bg-green-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm font-medium"
+                >
+                  {facebookImageUseBusy
+                    ? "⏳ Cover হিসেবে সেট হচ্ছে..."
+                    : post.featureImage === post.facebookImageUrl
+                      ? "✅ এই ছবিই Article Cover"
+                      : "✅ এই ছবি Article Cover হিসেবে ব্যবহার করুন"}
+                </button>
+              </div>
+
+              {post.featureImage === post.facebookImageUrl ? (
+                <p className="text-xs text-green-700">
+                  অনুমোদিত। এখন একই ছবি Article Cover এবং Facebook Card—দুই জায়গাতেই ব্যবহার হবে।
+                </p>
+              ) : (
+                <p className="text-xs text-orange-700">
+                  ছবিটি এখনো Article Cover হিসেবে অনুমোদন করা হয়নি। পছন্দ হলে উপরের বোতামে চাপুন।
+                </p>
+              )}
+            </>
           ) : (
             <p className="text-xs text-gray-500">
-              এখনো Facebook-এর জন্য আলাদা AI image তৈরি হয়নি।
+              এখনো AI image তৈরি হয়নি।
             </p>
           )}
         </div>
 
         <div className="border rounded-lg bg-white overflow-hidden">
-          <div className="px-3 py-2 text-xs font-medium text-gray-600 border-b">
-            🖼️ Code-designed Facebook Photo Card
+          <div className="px-3 py-2 text-xs font-medium text-gray-600 border-b flex items-center justify-between gap-2">
+            <span>🖼️ Facebook Photo Card</span>
+            {post.featureImage === post.facebookImageUrl && post.facebookImageUrl ? (
+              <button
+                type="button"
+                onClick={() => setCardPreviewVersion(Date.now())}
+                className="border px-3 py-1.5 rounded-lg text-xs bg-white"
+              >
+                🔄 Card রিফ্রেশ করুন
+              </button>
+            ) : null}
           </div>
-          <img
-            src={"/api/facebook/card/" + postId + "?preview=" + Date.now()}
-            alt="Facebook Photo Card"
-            className="w-full aspect-[4/5] object-cover"
-          />
+
+          {post.featureImage === post.facebookImageUrl && post.facebookImageUrl ? (
+            <img
+              src={"/api/facebook/card/" + postId + "?preview=" + cardPreviewVersion}
+              alt="Facebook Photo Card"
+              className="w-full aspect-[4/5] object-cover"
+            />
+          ) : (
+            <div className="p-6 text-sm text-gray-500">
+              AI image পছন্দ করে “এই ছবি Article Cover হিসেবে ব্যবহার করুন” চাপার পর
+              Facebook Card এখানে তৈরি হবে।
+            </div>
+          )}
         </div>
 
         <textarea
