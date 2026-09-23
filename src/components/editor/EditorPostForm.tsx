@@ -87,6 +87,8 @@ export default function EditorPostForm({ postId }: { postId: string }) {
     []
   );
   const [featureImageBusy, setFeatureImageBusy] = useState(false);
+  const [aiImageBusy, setAiImageBusy] = useState(false);
+  const [aiImagePrompt, setAiImagePrompt] = useState("");
   const [featureImageFile, setFeatureImageFile] = useState<File | null>(null);
   const [featureImagePreview, setFeatureImagePreview] = useState<string | null>(null);
   const [galleryImages, setGalleryImages] = useState<string[]>([]);
@@ -361,6 +363,118 @@ export default function EditorPostForm({ postId }: { postId: string }) {
 
     if (!url) throw new Error("Cloudinary image URL পাওয়া যায়নি");
     return url;
+  };
+
+  const generateAIImage = async () => {
+    if (!post) return;
+
+    setAiImageBusy(true);
+    setMessage("⏳ AI দিয়ে ছবি তৈরি হচ্ছে...");
+
+    try {
+      const response = await axios.post(
+        "/api/editor/posts/" + postId + "/facebook-image",
+        {
+          prompt: aiImagePrompt.trim() || undefined,
+        }
+      );
+
+      const generatedUrl = String(response.data?.imageUrl || "").trim();
+      if (!generatedUrl) {
+        throw new Error("AI image URL পাওয়া যায়নি");
+      }
+
+      setPost({
+        ...post,
+        facebookImageUrl: generatedUrl,
+        facebookImagePrompt:
+          response.data?.prompt || aiImagePrompt.trim() || null,
+        facebookStatus: "READY",
+        facebookError: null,
+      });
+
+      setMessage(
+        "✅ AI ছবি তৈরি হয়েছে। নিচের preview দেখে চাইলে Article Cover হিসেবে ব্যবহার করুন।"
+      );
+    } catch (error) {
+      const msg = axios.isAxiosError(error)
+        ? error.response?.data?.message ||
+          error.response?.data?.error ||
+          "AI image তৈরি করা যায়নি"
+        : error instanceof Error
+          ? error.message
+          : "AI image তৈরি করা যায়নি";
+
+      setMessage("❌ " + msg);
+    } finally {
+      setAiImageBusy(false);
+    }
+  };
+
+  const useAIImageAsFeature = async () => {
+    if (!post?.facebookImageUrl) return;
+
+    setAiImageBusy(true);
+    setMessage("⏳ AI ছবিটি Article Cover এবং Facebook Card-এর জন্য প্রস্তুত করা হচ্ছে...");
+
+    try {
+      const response = await axios.post(
+        "/api/editor/posts/" + postId + "/use-facebook-image"
+      );
+
+      const imageUrl = String(response.data?.post?.featureImage || "").trim();
+      if (!imageUrl) {
+        throw new Error("AI image-টি Article Cover হিসেবে save করা যায়নি");
+      }
+
+      const cardFile = await makeFacebookCard(imageUrl);
+      const cardUrl = await uploadFile(cardFile);
+
+      const saveResponse = await axios.put("/api/editor/posts/" + postId, {
+        title: post.title,
+        content: post.content,
+        tags: post.tags,
+        isBreaking: post.isBreaking,
+        authorId: post.authorId,
+        status: post.status,
+        featureImage: imageUrl,
+        facebookImageUrl: cardUrl,
+        galleryImages: parseGallery(post.galleryImages),
+        placement: post.placement,
+        categoryIds: selectedCategories,
+        subcategoryIds: selectedSubcategories,
+        facebookCaption: post.facebookCaption || "",
+        facebookAutoPost: Boolean(post.facebookAutoPost),
+      });
+
+      const saved = saveResponse.data?.post;
+
+      setPost({
+        ...post,
+        featureImage: String(saved?.featureImage || imageUrl),
+        facebookImageUrl: String(saved?.facebookImageUrl || cardUrl),
+        facebookImagePrompt: post.facebookImagePrompt,
+        facebookStatus: "READY",
+        facebookError: null,
+      });
+
+      setCardPreviewVersion(Date.now());
+      setMessage(
+        "✅ AI ছবি Article Cover হয়েছে এবং নতুন Facebook Card তৈরি হয়েছে।"
+      );
+    } catch (error) {
+      const msg = axios.isAxiosError(error)
+        ? error.response?.data?.message ||
+          error.response?.data?.error ||
+          "AI image ব্যবহার করা যায়নি"
+        : error instanceof Error
+          ? error.message
+          : "AI image ব্যবহার করা যায়নি";
+
+      setMessage("❌ " + msg);
+    } finally {
+      setAiImageBusy(false);
+    }
   };
 
   const handleFeatureImageChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -839,6 +953,65 @@ export default function EditorPostForm({ postId }: { postId: string }) {
           </option>
         ))}
       </select>
+
+      <div className="border rounded-xl p-4 bg-purple-50 space-y-4">
+        <div>
+          <p className="font-semibold">🤖 AI দিয়ে ছবি তৈরি করুন</p>
+          <p className="text-xs text-gray-600 mt-1">
+            নিজের prompt দিতে পারেন। খালি রাখলে Article-এর শিরোনাম, বিষয় ও ক্যাটাগরি দেখে AI নিজে prompt তৈরি করবে।
+            তৈরি হওয়া ছবিটি আগে preview হবে; আপনার অনুমতি ছাড়া Article Cover বদলাবে না।
+          </p>
+        </div>
+
+        <textarea
+          value={aiImagePrompt}
+          onChange={(e) => setAiImagePrompt(e.target.value)}
+          className="w-full min-h-24 border p-3 rounded-lg bg-white"
+          placeholder="যেমন: আন্তর্জাতিক টেনিস ম্যাচে একজন প্রাপ্তবয়স্ক খেলোয়াড়ের তীব্র ম্যাচের দৃশ্য, 4:5 editorial sports photography, no text..."
+          disabled={aiImageBusy}
+        />
+
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={generateAIImage}
+            disabled={aiImageBusy}
+            className="bg-purple-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm font-medium"
+          >
+            {aiImageBusy ? "⏳ AI ছবি তৈরি হচ্ছে..." : "✨ AI ছবি তৈরি করুন"}
+          </button>
+        </div>
+
+        {post.facebookImageUrl && post.facebookImageUrl !== post.featureImage ? (
+          <div className="border rounded-lg overflow-hidden bg-white">
+            <div className="px-3 py-2 border-b text-sm font-medium">
+              AI Image Preview
+            </div>
+            <img
+              src={post.facebookImageUrl}
+              alt="AI generated sports image"
+              className="w-full max-h-[520px] object-contain bg-gray-100"
+            />
+            {post.facebookImagePrompt ? (
+              <p className="px-3 pt-3 text-xs text-gray-500">
+                Prompt: {post.facebookImagePrompt}
+              </p>
+            ) : null}
+            <div className="p-3 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={useAIImageAsFeature}
+                disabled={aiImageBusy}
+                className="bg-green-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm font-medium"
+              >
+                {aiImageBusy
+                  ? "⏳ ছবি ব্যবহার হচ্ছে..."
+                  : "✅ এই AI ছবি Article Cover করুন"}
+              </button>
+            </div>
+          </div>
+        ) : null}
+      </div>
 
       <div className="border rounded-xl p-4 bg-gray-50">
         <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
