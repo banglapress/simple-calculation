@@ -13,10 +13,11 @@ async function getBanglaFont() {
   if (cachedFont) return cachedFont;
 
   try {
-    // Satori (used by next/og) does not support WOFF2.
-    // Fontsource provides a stable WOFF build of Noto Sans Bengali.
+    // Use a real TTF font with full Unicode Bengali glyphs.
+    // Satori/next-og can consume TTF directly and performs Bengali shaping
+    // from the Unicode text in the JSX.
     const fontResponse = await fetch(
-      "https://cdn.jsdelivr.net/fontsource/fonts/noto-sans-bengali@5.3.0/bengali-700-normal.woff",
+      "https://raw.githubusercontent.com/notofonts/noto-fonts/main/hinted/ttf/NotoSansBengali/NotoSansBengali-Bold.ttf",
       { cache: "force-cache" }
     );
 
@@ -117,7 +118,7 @@ export async function GET(
   const font = await getBanglaFont();
 
   return new ImageResponse(
-    <div
+    <div lang="bn"
       style={{
         width: "100%",
         height: "100%",
@@ -315,6 +316,7 @@ export async function GET(
       headers: {
         "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
         Pragma: "no-cache",
+        "Content-Language": "bn",
       },
     }
   );
