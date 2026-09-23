@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
     subcategoryIds,
     subcategoryId
   );
-  const normalizedStatus = normalizedValue(
+  const requestedStatus = normalizedValue(
     status,
     VALID_STATUSES,
     "DRAFT"
@@ -113,12 +113,21 @@ export async function POST(req: NextRequest) {
 
   const user = await prisma.user.findUnique({
     where: { email: session.user.email },
-    select: { id: true },
+    select: { id: true, role: true },
   });
 
   if (!user) {
     return NextResponse.json({ message: "User not found" }, { status: 404 });
   }
+
+  // Reporter submissions can never bypass the editorial queue.
+  // DRAFT stays DRAFT; every non-draft submission goes to PENDING.
+  const normalizedStatus =
+    user.role === "REPORTER"
+      ? requestedStatus === "DRAFT"
+        ? "DRAFT"
+        : "PENDING"
+      : requestedStatus;
 
   try {
     const post = await prisma.post.create({
