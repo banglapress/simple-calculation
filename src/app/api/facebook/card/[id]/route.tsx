@@ -72,7 +72,7 @@ async function loadImageDataUrl(url: string) {
         Accept:
           "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
       },
-      cache: "force-cache",
+      cache: "no-store",
     });
 
     if (!response.ok) return "";
