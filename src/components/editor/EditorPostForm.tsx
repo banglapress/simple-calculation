@@ -449,6 +449,53 @@ export default function EditorPostForm({ postId }: { postId: string }) {
     }
   };
 
+  const regenerateFacebookCard = async () => {
+    if (!post?.featureImage) return;
+
+    setFeatureImageBusy(true);
+    setMessage("⏳ বর্তমান Feature Image দিয়ে Unicode বাংলা Card তৈরি হচ্ছে...");
+
+    try {
+      const cardFile = await makeFacebookCard(post.featureImage);
+      const cardUrl = await uploadFile(cardFile);
+
+      await axios.put("/api/editor/posts/" + postId, {
+        title: post.title,
+        content: post.content,
+        tags: post.tags,
+        isBreaking: post.isBreaking,
+        authorId: post.authorId,
+        status: post.status,
+        featureImage: post.featureImage,
+        facebookImageUrl: cardUrl,
+        galleryImages: parseGallery(post.galleryImages),
+        placement: post.placement,
+        categoryIds: selectedCategories,
+        subcategoryIds: selectedSubcategories,
+        facebookCaption: post.facebookCaption || "",
+        facebookAutoPost: Boolean(post.facebookAutoPost),
+      });
+
+      setPost({
+        ...post,
+        facebookImageUrl: cardUrl,
+        facebookStatus: "READY",
+        facebookError: null,
+      });
+      setCardPreviewVersion(Date.now());
+      setMessage("✅ Unicode বাংলা Facebook Card নতুন করে তৈরি হয়েছে।");
+    } catch (error) {
+      setMessage(
+        "❌ " +
+          (error instanceof Error
+            ? error.message
+            : "Facebook Card তৈরি করা যায়নি")
+      );
+    } finally {
+      setFeatureImageBusy(false);
+    }
+  };
+
   const handleGalleryUpload = async () => {
     if (!galleryFiles.length) return galleryImages;
 
@@ -679,7 +726,8 @@ export default function EditorPostForm({ postId }: { postId: string }) {
             {post.featureImage ? (
               <button
                 type="button"
-                onClick={() => setCardPreviewVersion(Date.now())}
+                onClick={regenerateFacebookCard}
+                disabled={featureImageBusy}
                 className="border px-3 py-1.5 rounded-lg text-xs bg-white"
               >
                 🔄 Card রিফ্রেশ করুন
