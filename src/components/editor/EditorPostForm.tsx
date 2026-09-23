@@ -683,29 +683,31 @@ export default function EditorPostForm({ postId }: { postId: string }) {
     e.preventDefault();
     if (!post) return;
 
+    const currentPost = post;
+
     setSaving(true);
     setMessage("");
 
     try {
       const [uploadedImage, uploadedGallery] = await Promise.all([
-        handleImageUpload(),
+        currentPost.featureImage || "",
         handleGalleryUpload(),
       ]);
 
       const saveResponse = await axios.put("/api/editor/posts/" + postId, {
-        title: post.title,
-        content: post.content,
-        tags: post.tags,
-        isBreaking: post.isBreaking,
-        authorId: post.authorId,
-        status: post.status,
+        title: currentPost.title,
+        content: currentPost.content,
+        tags: currentPost.tags,
+        isBreaking: currentPost.isBreaking,
+        authorId: currentPost.authorId,
+        status: currentPost.status,
         featureImage: uploadedImage,
         galleryImages: uploadedGallery,
-        placement: post.placement,
+        placement: currentPost.placement,
         categoryIds: selectedCategories,
         subcategoryIds: selectedSubcategories,
-        facebookCaption: post.facebookCaption || "",
-        facebookAutoPost: Boolean(post.facebookAutoPost),
+        facebookCaption: currentPost.facebookCaption || "",
+        facebookAutoPost: Boolean(currentPost.facebookAutoPost),
       });
 
       setGalleryImages(uploadedGallery);
