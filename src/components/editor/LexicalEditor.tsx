@@ -10,9 +10,7 @@ import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext
 import { $generateNodesFromDOM } from "@lexical/html";
 import {
   $getRoot,
-  $getSelection,
   $insertNodes,
-  $isRangeSelection,
   CAN_REDO_COMMAND,
   CAN_UNDO_COMMAND,
   COMMAND_PRIORITY_LOW,
