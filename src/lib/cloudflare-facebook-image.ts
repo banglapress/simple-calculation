@@ -111,9 +111,22 @@ async function generateBytes(prompt: string) {
       );
     }
 
-    let payload: any = {};
+    let payload: {
+      result?: {
+        image?: unknown;
+        images?: unknown[];
+      };
+      image?: unknown;
+    };
+
     try {
-      payload = JSON.parse(raw);
+      payload = JSON.parse(raw) as {
+        result?: {
+          image?: unknown;
+          images?: unknown[];
+        };
+        image?: unknown;
+      };
     } catch {
       throw new Error(
         "Cloudflare image generation failed: invalid provider response"
@@ -121,9 +134,9 @@ async function generateBytes(prompt: string) {
     }
 
     const candidate =
-      payload?.result?.image ||
-      payload?.result?.images?.[0] ||
-      payload?.image ||
+      payload.result?.image ??
+      payload.result?.images?.[0] ??
+      payload.image ??
       "";
 
     const base64 =
