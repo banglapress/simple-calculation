@@ -128,27 +128,30 @@ export default function EditorPostForm({ postId }: { postId: string }) {
   }, [postId]);
 
   const loadFacebookCardFont = async () => {
-    const id = "khelatv-bengali-card-font";
-    let link = document.getElementById(id) as HTMLLinkElement | null;
+    const family = "KhelaTVBengali";
 
-    if (!link) {
-      link = document.createElement("link");
-      link.id = id;
-      link.rel = "stylesheet";
-      link.href =
-        "https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;700&display=swap";
-      document.head.appendChild(link);
+    if (!document.fonts.check('700 60px "' + family + '"')) {
+      const font = new FontFace(
+        family,
+        'url("/fonts/NotoSerifBengali.ttf")',
+        {
+          style: "normal",
+          weight: "100 900",
+        }
+      );
 
-      await new Promise<void>((resolve) => {
-        const finish = () => resolve();
-        link?.addEventListener("load", finish, { once: true });
-        link?.addEventListener("error", finish, { once: true });
-        window.setTimeout(finish, 5000);
-      });
+      const loaded = await font.load();
+      document.fonts.add(loaded);
     }
 
-    await document.fonts.load('700 60px "Noto Sans Bengali"');
-    await document.fonts.load('400 28px "Noto Sans Bengali"');
+    await document.fonts.ready;
+
+    if (!document.fonts.check('700 60px "' + family + '"')) {
+      throw new Error("বাংলা কার্ডের Unicode font লোড করা যায়নি");
+    }
+
+    await document.fonts.load('700 60px "' + family + '"');
+    await document.fonts.load('400 28px "' + family + '"');
   };
 
   const loadCardSourceImage = async (source: string | File) => {
@@ -253,7 +256,7 @@ export default function EditorPostForm({ postId }: { postId: string }) {
       ctx.fillRect(0, 0, 1080, 96);
 
       ctx.fillStyle = "#ffffff";
-      ctx.font = '700 30px "Noto Sans Bengali"';
+      ctx.font = '700 30px KhelaTVBengali';
       ctx.textBaseline = "middle";
       ctx.fillText("KhelaTV", 48, 48);
 
@@ -265,7 +268,7 @@ export default function EditorPostForm({ postId }: { postId: string }) {
         post.categories?.[0]?.name?.trim() || "অন্যান্য খেলা";
 
       ctx.fillStyle = "#ffffff";
-      ctx.font = '700 50px "Noto Sans Bengali"';
+      ctx.font = '700 50px KhelaTVBengali';
       ctx.textBaseline = "top";
       ctx.shadowColor = "rgba(0,0,0,0.65)";
       ctx.shadowBlur = 12;
@@ -281,17 +284,17 @@ export default function EditorPostForm({ postId }: { postId: string }) {
       ctx.fillRect(0, 886, 1080, 446);
 
       ctx.fillStyle = "#b42318";
-      ctx.font = '700 24px "Noto Sans Bengali"';
+      ctx.font = '700 24px KhelaTVBengali';
       ctx.fillText(categoryName, 54, 924);
 
       const title = String(post.title || "").trim();
       ctx.fillStyle = "#17130f";
       ctx.font =
         title.length > 90
-          ? '700 48px "Noto Sans Bengali"'
+          ? '700 48px KhelaTVBengali'
           : title.length > 60
-            ? '700 54px "Noto Sans Bengali"'
-            : '700 60px "Noto Sans Bengali"';
+            ? '700 54px KhelaTVBengali'
+            : '700 60px KhelaTVBengali';
 
       const titleLines = wrapCanvasText(ctx, title, 970, 2);
       const titleLineHeight = title.length > 90 ? 56 : title.length > 60 ? 63 : 70;
@@ -308,7 +311,7 @@ export default function EditorPostForm({ postId }: { postId: string }) {
 
       if (plainText) {
         ctx.fillStyle = "#5b5147";
-        ctx.font = '400 28px "Noto Sans Bengali"';
+        ctx.font = '400 28px KhelaTVBengali';
         const excerptLines = wrapCanvasText(ctx, plainText, 940, 3);
         const excerptTop = 968 + titleLines.length * titleLineHeight + 18;
         excerptLines.forEach((line, index) => {
