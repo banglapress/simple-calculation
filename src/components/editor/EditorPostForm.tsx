@@ -567,15 +567,18 @@ export default function EditorPostForm({ postId }: { postId: string }) {
   };
 
   const regenerateFacebookCard = async () => {
-    if (!post?.featureImage) return;
+    if (!post) return;
 
     const currentPost = post;
+    const featureImage = currentPost.featureImage;
+
+    if (!featureImage) return;
 
     setFeatureImageBusy(true);
     setMessage("⏳ বর্তমান Feature Image দিয়ে Unicode বাংলা Card তৈরি হচ্ছে...");
 
     try {
-      const cardFile = await makeFacebookCard(currentPost.featureImage);
+      const cardFile = await makeFacebookCard(featureImage);
       const cardUrl = await uploadFile(cardFile);
 
       await axios.put("/api/editor/posts/" + postId, {
