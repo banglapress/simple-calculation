@@ -13,29 +13,12 @@ async function getBanglaFont() {
   if (cachedFont) return cachedFont;
 
   try {
-    const cssResponse = await fetch(
-      "https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@700&display=swap",
-      {
-        headers: {
-          "User-Agent":
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124 Safari/537.36",
-        },
-        cache: "force-cache",
-      }
+    // Satori (used by next/og) does not support WOFF2.
+    // Fontsource provides a stable WOFF build of Noto Sans Bengali.
+    const fontResponse = await fetch(
+      "https://cdn.jsdelivr.net/fontsource/fonts/noto-sans-bengali@5.3.0/bengali-700-normal.woff",
+      { cache: "force-cache" }
     );
-
-    if (!cssResponse.ok) return null;
-
-    const css = await cssResponse.text();
-    const match = css.match(
-      /src:\s*url\(([^)]+)\)\s*format\(['"]woff2['"]\)/i
-    );
-
-    if (!match?.[1]) return null;
-
-    const fontResponse = await fetch(match[1].replace(/['"]/g, ""), {
-      cache: "no-store",
-    });
 
     if (!fontResponse.ok) return null;
 
