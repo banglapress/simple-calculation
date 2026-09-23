@@ -89,6 +89,7 @@ export default function EditorPostForm({ postId }: { postId: string }) {
   const [featureImageBusy, setFeatureImageBusy] = useState(false);
   const [aiImageBusy, setAiImageBusy] = useState(false);
   const [aiImagePrompt, setAiImagePrompt] = useState("");
+  const [aiGeneratedImageUrl, setAiGeneratedImageUrl] = useState<string | null>(null);
   const [featureImageFile, setFeatureImageFile] = useState<File | null>(null);
   const [featureImagePreview, setFeatureImagePreview] = useState<string | null>(null);
   const [galleryImages, setGalleryImages] = useState<string[]>([]);
@@ -384,6 +385,7 @@ export default function EditorPostForm({ postId }: { postId: string }) {
         throw new Error("AI image URL পাওয়া যায়নি");
       }
 
+      setAiGeneratedImageUrl(generatedUrl);
       setPost({
         ...post,
         facebookImageUrl: generatedUrl,
@@ -412,7 +414,7 @@ export default function EditorPostForm({ postId }: { postId: string }) {
   };
 
   const useAIImageAsFeature = async () => {
-    if (!post?.facebookImageUrl) return;
+    if (!aiGeneratedImageUrl) return;
 
     setAiImageBusy(true);
     setMessage("⏳ AI ছবিটি Article Cover এবং Facebook Card-এর জন্য প্রস্তুত করা হচ্ছে...");
@@ -458,6 +460,7 @@ export default function EditorPostForm({ postId }: { postId: string }) {
         facebookError: null,
       });
 
+      setAiGeneratedImageUrl(null);
       setCardPreviewVersion(Date.now());
       setMessage(
         "✅ AI ছবি Article Cover হয়েছে এবং নতুন Facebook Card তৈরি হয়েছে।"
@@ -982,13 +985,13 @@ export default function EditorPostForm({ postId }: { postId: string }) {
           </button>
         </div>
 
-        {post.facebookImageUrl && post.facebookImageUrl !== post.featureImage ? (
+        {aiGeneratedImageUrl ? (
           <div className="border rounded-lg overflow-hidden bg-white">
             <div className="px-3 py-2 border-b text-sm font-medium">
               AI Image Preview
             </div>
             <img
-              src={post.facebookImageUrl}
+              src={aiGeneratedImageUrl}
               alt="AI generated sports image"
               className="w-full max-h-[520px] object-contain bg-gray-100"
             />
