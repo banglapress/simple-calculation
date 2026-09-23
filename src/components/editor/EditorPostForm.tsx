@@ -401,17 +401,33 @@ export default function EditorPostForm({ postId }: { postId: string }) {
         <div>
           <p className="font-semibold">📘 Facebook Publishing</p>
           <p className="text-xs text-gray-600 mt-1">
-            প্রথমে AI image তৈরি করুন। পছন্দ হলে সেটিকে Article Cover হিসেবে অনুমোদন করুন।
-            অনুমোদিত একই ছবিই তারপর Facebook Photo Card-এর মূল ছবি হিসেবে ব্যবহার হবে।
+            Article-এর Feature Image-ই Facebook Card-এর মূল ছবি। তাই স্টক/অরিজিনাল ছবি আপলোড
+            করলেই একই ছবি দুই জায়গায় ব্যবহার হবে। AI image চাইলে আলাদাভাবে তৈরি করা যাবে।
           </p>
         </div>
+
+        {post.featureImage ? (
+          <div className="border rounded-lg bg-white p-4 space-y-3">
+            <div>
+              <p className="font-semibold">📷 Article Feature Image</p>
+              <p className="text-xs text-green-700 mt-1">
+                এই ছবিই Article Cover এবং Facebook Card—দুই জায়গায় ব্যবহার হবে।
+              </p>
+            </div>
+            <img
+              src={post.featureImage}
+              alt="Article Feature Image"
+              className="w-full aspect-[4/5] object-cover rounded-lg"
+            />
+          </div>
+        ) : null}
 
         <div className="border rounded-lg bg-white p-4 space-y-3">
           <div className="flex flex-wrap justify-between gap-2">
             <div>
-              <p className="font-semibold">🎨 Facebook AI Image</p>
+              <p className="font-semibold">🎨 Optional AI Image</p>
               <p className="text-xs text-gray-500 mt-1">
-                Provider: Cloudflare · FLUX.2 Klein 4B · 4:5
+                Provider: Cloudflare · FLUX.2 Klein 4B · optional
               </p>
             </div>
             <button
@@ -493,7 +509,7 @@ export default function EditorPostForm({ postId }: { postId: string }) {
             ) : null}
           </div>
 
-          {post.featureImage === post.facebookImageUrl && post.facebookImageUrl ? (
+          {post.featureImage ? (
             <img
               src={"/api/facebook/card/" + postId + "?preview=" + cardPreviewVersion}
               alt="Facebook Photo Card"
@@ -501,8 +517,7 @@ export default function EditorPostForm({ postId }: { postId: string }) {
             />
           ) : (
             <div className="p-6 text-sm text-gray-500">
-              AI image পছন্দ করে “এই ছবি Article Cover হিসেবে ব্যবহার করুন” চাপার পর
-              Facebook Card এখানে তৈরি হবে।
+              আগে Article-এর Feature Image আপলোড/সেট করুন। সেটিই Facebook Card-এর মূল ছবি হিসেবে ব্যবহৃত হবে।
             </div>
           )}
         </div>
