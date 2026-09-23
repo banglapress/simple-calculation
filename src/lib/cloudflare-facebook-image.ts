@@ -89,18 +89,6 @@ function isFlaggedResponse(raw: string) {
   );
 }
 
-function classifyError(status: number, raw: string) {
-  if (isFlaggedResponse(raw)) {
-    return "Cloudflare safety filter flagged the generated output";
-  }
-  if (status === 429 || /rate.?limit|quota/i.test(raw)) return "Cloudflare rate limit/quota";
-  if (status === 401 || /invalid.+token|authentication/i.test(raw)) return "Cloudflare API token is invalid";
-  if (status === 403 || /permission|not authorized|insufficient/i.test(raw)) return "Cloudflare API token does not have Workers AI permission";
-  if (status === 404 || /model.+not found|unknown model/i.test(raw)) return "Cloudflare image model is unavailable";
-  if (status >= 500) return "Cloudflare AI provider error";
-  return raw.slice(0, 300) || "Cloudflare image generation failed";
-}
-
 function cloudflareErrorDetails(
   status: number,
   raw: string
