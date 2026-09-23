@@ -445,7 +445,6 @@ export default function EditorPostForm({ postId }: { postId: string }) {
         subcategoryIds: selectedSubcategories,
         facebookCaption: currentPost.facebookCaption || "",
         facebookAutoPost: Boolean(currentPost.facebookAutoPost),
-        facebookImageUrl: currentPost.facebookImageUrl || "",
       });
 
       const saved = saveResponse.data?.post;
