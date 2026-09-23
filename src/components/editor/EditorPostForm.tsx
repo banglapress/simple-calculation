@@ -127,6 +127,30 @@ export default function EditorPostForm({ postId }: { postId: string }) {
     });
   }, [postId]);
 
+  const uploadFile = async (file: File) => {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const response = await fetch("/api/upload", {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const body = await response.text().catch(() => "");
+      throw new Error(body || "Image upload failed");
+    }
+
+    const data = (await response.json()) as { url?: string };
+    const url = String(data.url || "").trim();
+
+    if (!url) {
+      throw new Error("Image upload response-এ URL পাওয়া যায়নি");
+    }
+
+    return url;
+  };
+
   const makeFacebookCard = async (sourceUrl: string) => {
     if (!post) throw new Error("পোস্ট পাওয়া যায়নি");
     if (!sourceUrl.trim()) throw new Error("Feature Image পাওয়া যায়নি");
