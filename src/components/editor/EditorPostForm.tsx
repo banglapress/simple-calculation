@@ -86,7 +86,7 @@ export default function EditorPostForm({ postId }: { postId: string }) {
   const [selectedSubcategories, setSelectedSubcategories] = useState<number[]>(
     []
   );
-  const [featureImageFile, setFeatureImageFile] = useState<File | null>(null);
+  const [featureImageBusy, setFeatureImageBusy] = useState(false);
   const [galleryImages, setGalleryImages] = useState<string[]>([]);
   const [galleryFiles, setGalleryFiles] = useState<File[]>([]);
   const [message, setMessage] = useState("");
@@ -125,20 +125,83 @@ export default function EditorPostForm({ postId }: { postId: string }) {
   }, [postId]);
 
   const handleImageUpload = async () => {
-    if (!featureImageFile) return post?.featureImage || "";
+    return post?.featureImage || "";
+  };
 
-    const formData = new FormData();
-    formData.append("file", featureImageFile);
+  const handleFeatureImageChange = async (
+    e: ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file || !post) return;
 
-    const res = await fetch("/api/upload", {
-      method: "POST",
-      body: formData,
-    });
+    setFeatureImageBusy(true);
+    setMessage("");
 
-    if (!res.ok) throw new Error("Feature image upload failed");
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
 
-    const data = await res.json();
-    return data.url || "";
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) {
+        throw new Error("Feature image upload failed");
+      }
+
+      const data = await res.json();
+      const url = String(data.url || "").trim();
+
+      if (!url) {
+        throw new Error("Cloudinary image URL পাওয়া যায়নি");
+      }
+
+      const response = await axios.put("/api/editor/posts/" + postId, {
+        title: post.title,
+        content: post.content,
+        tags: post.tags,
+        isBreaking: post.isBreaking,
+        authorId: post.authorId,
+        status: post.status,
+        featureImage: url,
+        galleryImages: parseGallery(post.galleryImages),
+        placement: post.placement,
+        categoryIds: selectedCategories,
+        subcategoryIds: selectedSubcategories,
+        facebookCaption: post.facebookCaption || "",
+        facebookAutoPost: Boolean(post.facebookAutoPost),
+      });
+
+      const saved = response.data?.post;
+
+      setPost({
+        ...post,
+        featureImage: saved?.featureImage || url,
+        facebookImageUrl: saved?.facebookImageUrl || url,
+        facebookStatus: saved?.facebookStatus || "READY",
+        facebookError: null,
+      });
+
+      setCardPreviewVersion(Date.now());
+      setMessage(
+        "✅ ছবি আপলোড হয়েছে। এই ছবিই Article Cover এবং Facebook Card—দুই জায়গায় ব্যবহার হচ্ছে।"
+      );
+    } catch (error) {
+      setMessage(
+        "❌ " +
+          (axios.isAxiosError(error)
+            ? error.response?.data?.message ||
+              error.response?.data?.error ||
+              "Feature Image upload করা যায়নি"
+            : error instanceof Error
+              ? error.message
+              : "Feature Image upload করা যায়নি")
+      );
+    } finally {
+      setFeatureImageBusy(false);
+      e.target.value = "";
+    }
   };
 
   const handleGalleryUpload = async () => {
@@ -436,83 +499,10 @@ export default function EditorPostForm({ postId }: { postId: string }) {
           </div>
         ) : null}
 
-        <div className="border rounded-lg bg-white p-4 space-y-3">
-          <div className="flex flex-wrap justify-between gap-2">
-            <div>
-              <p className="font-semibold">🎨 Optional AI Image</p>
-              <p className="text-xs text-gray-500 mt-1">
-                Provider: Cloudflare · FLUX.2 Klein 4B · optional
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={generateFacebookImage}
-              disabled={facebookImageBusy}
-              className="bg-purple-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm"
-            >
-              {facebookImageBusy
-                ? "⏳ Image তৈরি হচ্ছে..."
-                : post.facebookImageUrl
-                  ? "🔄 Regenerate AI Image"
-                  : "✨ Generate Facebook AI Image"}
-            </button>
-          </div>
-
-          <textarea
-            value={post.facebookImagePrompt || ""}
-            onChange={(e) =>
-              setPost({ ...post, facebookImagePrompt: e.target.value })
-            }
-            className="w-full min-h-28 border p-3 rounded-lg bg-white text-sm"
-            placeholder="Facebook AI image prompt"
-          />
-
-          {post.facebookImageUrl ? (
-            <>
-              <div className="border rounded-lg overflow-hidden">
-                <img
-                  src={post.facebookImageUrl}
-                  alt="Facebook AI image"
-                  className="w-full aspect-[4/5] object-cover"
-                />
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={useFacebookImage}
-                  disabled={facebookImageUseBusy || post.featureImage === post.facebookImageUrl}
-                  className="bg-green-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm font-medium"
-                >
-                  {facebookImageUseBusy
-                    ? "⏳ Cover হিসেবে সেট হচ্ছে..."
-                    : post.featureImage === post.facebookImageUrl
-                      ? "✅ এই ছবিই Article Cover"
-                      : "✅ এই ছবি Article Cover হিসেবে ব্যবহার করুন"}
-                </button>
-              </div>
-
-              {post.featureImage === post.facebookImageUrl ? (
-                <p className="text-xs text-green-700">
-                  অনুমোদিত। এখন একই ছবি Article Cover এবং Facebook Card—দুই জায়গাতেই ব্যবহার হবে।
-                </p>
-              ) : (
-                <p className="text-xs text-orange-700">
-                  ছবিটি এখনো Article Cover হিসেবে অনুমোদন করা হয়নি। পছন্দ হলে উপরের বোতামে চাপুন।
-                </p>
-              )}
-            </>
-          ) : (
-            <p className="text-xs text-gray-500">
-              এখনো AI image তৈরি হয়নি।
-            </p>
-          )}
-        </div>
-
         <div className="border rounded-lg bg-white overflow-hidden">
           <div className="px-3 py-2 text-xs font-medium text-gray-600 border-b flex items-center justify-between gap-2">
             <span>🖼️ Facebook Photo Card</span>
-            {post.featureImage === post.facebookImageUrl && post.facebookImageUrl ? (
+            {post.featureImage ? (
               <button
                 type="button"
                 onClick={() => setCardPreviewVersion(Date.now())}
@@ -623,24 +613,39 @@ export default function EditorPostForm({ postId }: { postId: string }) {
         ))}
       </select>
 
-      <div>
-        <p className="text-sm text-gray-500 mb-1">ফিচার ছবি:</p>
-        {post.featureImage && (
-          <Image
-            src={post.featureImage}
-            alt="Feature Image"
-            width={300}
-            height={200}
-            className="mb-2 rounded shadow"
-          />
+      <div className="border rounded-xl p-4 bg-gray-50">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+          <div>
+            <p className="font-semibold">📷 Feature Image</p>
+            <p className="text-xs text-gray-500 mt-1">
+              অরিজিনাল/স্টক ছবি আপলোড করুন। আপলোড হওয়া ছবিই Article Cover ও Facebook Card—দুই জায়গায় যাবে।
+            </p>
+          </div>
+          <label className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm cursor-pointer">
+            {featureImageBusy ? "⏳ আপলোড হচ্ছে..." : "🖼️ ছবি পরিবর্তন করুন"}
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              disabled={featureImageBusy}
+              onChange={handleFeatureImageChange}
+            />
+          </label>
+        </div>
+
+        {post.featureImage ? (
+          <div className="border rounded-lg overflow-hidden bg-white">
+            <img
+              src={post.featureImage}
+              alt="Feature Image"
+              className="w-full max-h-[520px] object-contain"
+            />
+          </div>
+        ) : (
+          <p className="text-sm text-gray-500">
+            এখনো Feature Image দেওয়া হয়নি।
+          </p>
         )}
-        <input
-          type="file"
-          accept="image/*"
-          onChange={(e: ChangeEvent<HTMLInputElement>) =>
-            setFeatureImageFile(e.target.files?.[0] || null)
-          }
-        />
       </div>
 
       <div className="border rounded-xl p-4 bg-gray-50">
