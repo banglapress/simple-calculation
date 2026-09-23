@@ -49,9 +49,9 @@ export async function publishPostToFacebook(
       tags: post.tags,
     });
 
+  const storedCardUrl = String(post.facebookImageUrl || "").trim();
   const cardUrl =
-    post.facebookImageUrl?.trim() ||
-    "https://www.khelatv.com/api/facebook/card/" + post.id;
+    storedCardUrl || "https://www.khelatv.com/api/facebook/card/" + post.id;
 
   await prisma.post.update({
     where: { id: postId },
