@@ -92,6 +92,7 @@ export async function PUT(
       status: normalizedStatus,
       placement,
       featureImage,
+      facebookImageUrl: typeof featureImage === "string" ? featureImage.trim() : "",
       galleryImages: JSON.stringify(normalizeGallery(galleryImages)),
       isBreaking,
       facebookCaption:
