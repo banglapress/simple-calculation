@@ -9,13 +9,20 @@ function allowed(role?: string | null) {
 }
 
 function makeExcerpt(content: string) {
-  return content.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim().slice(0, 180);
+  return content
+    .replace(/<[^>]+>/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 180);
 }
 
 function normalizeGallery(value: unknown) {
   if (!Array.isArray(value)) return [];
-  return value.filter((item) => typeof item === "string")
-    .map((item) => item.trim()).filter(Boolean).slice(0, 20);
+  return value
+    .filter((item) => typeof item === "string")
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .slice(0, 20);
 }
 
 export async function GET(
@@ -42,6 +49,10 @@ export async function GET(
       },
     },
   });
+
+  if (!post) {
+    return NextResponse.json({ message: "Post not found" }, { status: 404 });
+  }
 
   return NextResponse.json(post);
 }
@@ -75,58 +86,117 @@ export async function PUT(
   } = body;
 
   const normalizedStatus =
-    status === "PUBLISHED" ? "PUBLISHED" :
-    status === "PENDING" ? "PENDING" : "DRAFT";
+    status === "PUBLISHED"
+      ? "PUBLISHED"
+      : status === "PENDING"
+      ? "PENDING"
+      : "DRAFT";
+
+  if (!String(title || "").trim()) {
+    return NextResponse.json(
+      { message: "শিরোনাম খালি রাখা যাবে না" },
+      { status: 400 }
+    );
+  }
+
+  const categoryIdList = Array.isArray(categoryIds)
+    ? categoryIds
+        .map((value: unknown) => Number(value))
+        .filter((value: number) => Number.isInteger(value) && value > 0)
+    : [];
+
+  const subcategoryIdList = Array.isArray(subcategoryIds)
+    ? subcategoryIds
+        .map((value: unknown) => Number(value))
+        .filter((value: number) => Number.isInteger(value) && value > 0)
+    : [];
 
   const shouldAutoPost =
     typeof facebookAutoPost === "boolean"
       ? facebookAutoPost
       : undefined;
 
-  const updated = await prisma.post.update({
-    where: { id },
-    data: {
-      title,
-      content,
-      excerpt: makeExcerpt(content ?? ""),
-      tags,
-      status: normalizedStatus,
-      placement,
-      featureImage,
-      facebookImageUrl:
-        typeof facebookImageUrl === "string"
-          ? facebookImageUrl.trim()
-          : undefined,
-      galleryImages: JSON.stringify(normalizeGallery(galleryImages)),
-      isBreaking,
-      facebookCaption:
-        typeof facebookCaption === "string" ? facebookCaption : undefined,
-      facebookAutoPost: shouldAutoPost,
-      facebookError:
-        normalizedStatus !== "PUBLISHED" ? null : undefined,
-      author: authorId ? { connect: { id: authorId } } : undefined,
-      categories: {
-        set: Array.isArray(categoryIds)
-          ? categoryIds.map((categoryId: number) => ({ id: categoryId }))
-          : [],
+  try {
+    const existing = await prisma.post.findUnique({
+      where: { id },
+      select: { id: true, authorId: true },
+    });
+
+    if (!existing) {
+      return NextResponse.json(
+        { message: "Post not found" },
+        { status: 404 }
+      );
+    }
+
+    const updated = await prisma.post.update({
+      where: { id },
+      data: {
+        title: String(title).trim(),
+        content: typeof content === "string" ? content : "",
+        excerpt: makeExcerpt(typeof content === "string" ? content : ""),
+        tags: typeof tags === "string" ? tags : undefined,
+        status: normalizedStatus,
+        placement,
+        featureImage:
+          typeof featureImage === "string"
+            ? featureImage
+            : undefined,
+        facebookImageUrl:
+          typeof facebookImageUrl === "string"
+            ? facebookImageUrl.trim()
+            : undefined,
+        galleryImages: JSON.stringify(normalizeGallery(galleryImages)),
+        isBreaking: Boolean(isBreaking),
+        facebookCaption:
+          typeof facebookCaption === "string"
+            ? facebookCaption
+            : undefined,
+        facebookAutoPost: shouldAutoPost,
+        facebookError:
+          normalizedStatus !== "PUBLISHED" ? null : undefined,
+        author:
+          typeof authorId === "string" && authorId.trim()
+            ? { connect: { id: authorId.trim() } }
+            : undefined,
+        categories: {
+          set: categoryIdList.map((categoryId: number) => ({
+            id: categoryId,
+          })),
+        },
+        subcategories: {
+          set: subcategoryIdList.map((subcategoryId: number) => ({
+            id: subcategoryId,
+          })),
+        },
       },
-      subcategories: {
-        set: Array.isArray(subcategoryIds)
-          ? subcategoryIds.map((subcategoryId: number) => ({ id: subcategoryId }))
-          : [],
+    });
+
+    const facebook =
+      normalizedStatus === "PUBLISHED"
+        ? await publishPostToFacebook(id)
+        : null;
+
+    const final = await prisma.post.findUnique({
+      where: { id },
+    });
+
+    return NextResponse.json({
+      post: final || updated,
+      facebook,
+    });
+  } catch (error) {
+    console.error("EDITOR POST UPDATE ERROR:", error);
+
+    const message =
+      error instanceof Error ? error.message : "Failed to update post";
+
+    return NextResponse.json(
+      {
+        message: "পোস্ট সংরক্ষণ করা যায়নি",
+        detail: message,
       },
-    },
-  });
-
-  const facebook =
-    normalizedStatus === "PUBLISHED"
-      ? await publishPostToFacebook(id)
-      : null;
-
-  const final = await prisma.post.findUnique({ where: { id } });
-
-  return NextResponse.json({
-    post: final || updated,
-    facebook,
-  });
+      { status: 500 }
+    );
+  }
 }
