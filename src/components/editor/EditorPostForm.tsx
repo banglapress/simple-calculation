@@ -309,6 +309,20 @@ export default function EditorPostForm({ postId }: { postId: string }) {
 
       setGalleryImages(uploadedGallery);
       setGalleryFiles([]);
+      if (saveResponse.data?.post) {
+        setPost((current) =>
+          current
+            ? {
+                ...current,
+                featureImage: saveResponse.data.post.featureImage,
+                facebookImageUrl: saveResponse.data.post.facebookImageUrl,
+                facebookStatus: saveResponse.data.post.facebookStatus,
+                facebookError: saveResponse.data.post.facebookError,
+              }
+            : current
+        );
+      }
+      setCardPreviewVersion(Date.now());
       const facebookResult = saveResponse.data?.facebook;
       if (facebookResult?.published) {
         setMessage("✅ পোস্ট আপডেট হয়েছে এবং Facebook-এ প্রকাশ হয়েছে");
