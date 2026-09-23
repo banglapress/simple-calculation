@@ -83,12 +83,6 @@ function buildSafeFallbackPrompt(originalPrompt: string) {
   ].join("\n\n");
 }
 
-function isFlaggedResponse(raw: string) {
-  return /(?:code['":\\s]*3030|output has been flagged|choose another prompt)/i.test(
-    raw
-  );
-}
-
 function cloudflareErrorDetails(
   status: number,
   raw: string
