@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 const size = { width: 1080, height: 1350 };
 let cachedFont: ArrayBuffer | null = null;
