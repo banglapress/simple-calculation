@@ -1,6 +1,9 @@
 import { v2 as cloudinary, UploadApiResponse } from "cloudinary";
 
-const CLOUDFLARE_MODEL = "@cf/black-forest-labs/flux-2-klein-4b";
+const PRIMARY_CLOUDFLARE_MODEL =
+  "@cf/black-forest-labs/flux-2-klein-4b";
+const FALLBACK_CLOUDFLARE_MODEL =
+  "@cf/black-forest-labs/flux-1-schnell";
 const WIDTH = 1024;
 const HEIGHT = 1280;
 
@@ -98,7 +101,88 @@ function classifyError(status: number, raw: string) {
   return raw.slice(0, 300) || "Cloudflare image generation failed";
 }
 
-async function generateBytes(prompt: string) {
+function cloudflareErrorDetails(
+  status: number,
+  raw: string
+) {
+  let code = "";
+  let message = "";
+
+  try {
+    const payload = JSON.parse(raw) as {
+      errors?: Array<{ code?: number | string; message?: string }>;
+      error?: { code?: number | string; message?: string };
+    };
+
+    const firstError = payload.errors?.[0] || payload.error;
+    code = String(firstError?.code || "");
+    message = String(firstError?.message || "");
+  } catch {
+    // Keep raw text below.
+  }
+
+  message = message || raw.slice(0, 400);
+
+  return { status, code, message };
+}
+
+function classifyCloudflareError(
+  status: number,
+  raw: string
+) {
+  const details = cloudflareErrorDetails(status, raw);
+  const code = details.code;
+  const message = details.message;
+
+  if (code === "3036") {
+    return "Cloudflare Workers AI daily free allocation শেষ হয়েছে (3036).";
+  }
+  if (code === "3040") {
+    return "Cloudflare Workers AI capacity সাময়িকভাবে পূর্ণ (3040).";
+  }
+  if (code === "5035") {
+    return "এই Cloudflare AI model-এর জন্য Workers Paid plan প্রয়োজন (5035).";
+  }
+  if (code === "3042" || code === "5007") {
+    return "Cloudflare AI model পাওয়া যাচ্ছে না (" + code + ").";
+  }
+  if (code === "5018" || code === "3041") {
+    return "Cloudflare account এই AI model ব্যবহার করতে অনুমোদিত নয় (" + code + ").";
+  }
+  if (code === "3003") {
+    return "Cloudflare AI request incomplete (3003).";
+  }
+  if (code === "3007" || code === "3008") {
+    return "Cloudflare AI request timeout/aborted (" + code + ").";
+  }
+  if (status === 401 || /invalid.+token|authentication/i.test(message)) {
+    return "Cloudflare API token invalid.";
+  }
+  if (status === 403 || /permission|not authorized|insufficient/i.test(message)) {
+    return "Cloudflare API token-এর Workers AI permission নেই.";
+  }
+  if (status === 429) {
+    return "Cloudflare AI rate limit/capacity error.";
+  }
+  if (status >= 500) {
+    return "Cloudflare AI provider error.";
+  }
+
+  return message || "Cloudflare image generation failed.";
+}
+
+function isRetryable(status: number, raw: string) {
+  const details = cloudflareErrorDetails(status, raw);
+  return (
+    [429, 500, 502, 503, 504].includes(status) ||
+    details.code === "3040"
+  );
+}
+
+async function callCloudflareModel(
+  model: string,
+  prompt: string
+) {
   const accountId = env("CLOUDFLARE_ACCOUNT_ID");
   const token = env("CLOUDFLARE_API_TOKEN");
 
@@ -108,29 +192,52 @@ async function generateBytes(prompt: string) {
     );
   }
 
-  const form = new FormData();
-  form.append("prompt", prompt);
-  form.append("width", String(WIDTH));
-  form.append("height", String(HEIGHT));
-
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 90000);
 
   try {
-    const response = await fetch(
-      "https://api.cloudflare.com/client/v4/accounts/" +
-        encodeURIComponent(accountId) +
-        "/ai/run/" +
-        CLOUDFLARE_MODEL,
-      {
-        method: "POST",
-        headers: {
-          Authorization: "Bearer " + token,
-        },
-        body: form,
-        signal: controller.signal,
-      }
-    );
+    let response: Response;
+
+    if (model === FALLBACK_CLOUDFLARE_MODEL) {
+      response = await fetch(
+        "https://api.cloudflare.com/client/v4/accounts/" +
+          encodeURIComponent(accountId) +
+          "/ai/run/" +
+          FALLBACK_CLOUDFLARE_MODEL,
+        {
+          method: "POST",
+          headers: {
+            Authorization: "Bearer " + token,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            prompt: prompt.slice(0, 2048),
+            steps: 4,
+          }),
+          signal: controller.signal,
+        }
+      );
+    } else {
+      const form = new FormData();
+      form.append("prompt", prompt);
+      form.append("width", String(WIDTH));
+      form.append("height", String(HEIGHT));
+
+      response = await fetch(
+        "https://api.cloudflare.com/client/v4/accounts/" +
+          encodeURIComponent(accountId) +
+          "/ai/run/" +
+          PRIMARY_CLOUDFLARE_MODEL,
+        {
+          method: "POST",
+          headers: {
+            Authorization: "Bearer " + token,
+          },
+          body: form,
+          signal: controller.signal,
+        }
+      );
+    }
 
     const contentType = response.headers.get("content-type") || "";
 
@@ -138,9 +245,11 @@ async function generateBytes(prompt: string) {
       const buffer = Buffer.from(await response.arrayBuffer());
       if (!response.ok || buffer.byteLength < 32) {
         throw new Error(
-          "Cloudflare image generation failed: HTTP " + response.status
+          "Cloudflare image generation failed: HTTP " +
+            response.status
         );
       }
+
       return {
         mime: contentType.split(";")[0] || "image/jpeg",
         base64: buffer.toString("base64"),
@@ -150,11 +259,16 @@ async function generateBytes(prompt: string) {
     const raw = await response.text();
 
     if (!response.ok) {
-      throw new Error(
-        "Cloudflare image generation failed: " +
-          classifyError(response.status, raw) +
-          (isFlaggedResponse(raw) ? " [3030]" : "")
+      const details = cloudflareErrorDetails(response.status, raw);
+      const error = new Error(
+        classifyCloudflareError(response.status, raw) +
+          (details.code ? " [code " + details.code + "]" : "")
       );
+      (error as Error & { cloudflareCode?: string }).cloudflareCode =
+        details.code;
+      (error as Error & { cloudflareStatus?: number }).cloudflareStatus =
+        response.status;
+      throw error;
     }
 
     let payload: {
@@ -166,13 +280,7 @@ async function generateBytes(prompt: string) {
     };
 
     try {
-      payload = JSON.parse(raw) as {
-        result?: {
-          image?: unknown;
-          images?: unknown[];
-        };
-        image?: unknown;
-      };
+      payload = JSON.parse(raw) as typeof payload;
     } catch {
       throw new Error(
         "Cloudflare image generation failed: invalid provider response"
@@ -200,14 +308,55 @@ async function generateBytes(prompt: string) {
       mime: "image/jpeg",
       base64,
     };
-  } catch (error) {
-    if (error instanceof DOMException && error.name === "AbortError") {
-      throw new Error("Cloudflare image generation timed out");
-    }
-    throw error;
   } finally {
     clearTimeout(timer);
   }
+}
+
+async function generateBytes(prompt: string) {
+  const models = [PRIMARY_CLOUDFLARE_MODEL, FALLBACK_CLOUDFLARE_MODEL];
+  let lastError: unknown = null;
+
+  for (const model of models) {
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
+      try {
+        return await callCloudflareModel(model, prompt);
+      } catch (error) {
+        lastError = error;
+
+        const status = Number(
+          (error as { cloudflareStatus?: number }).cloudflareStatus || 0
+        );
+        const raw = String(error instanceof Error ? error.message : error);
+
+        if (!isRetryable(status, raw) || attempt === 3) break;
+
+        await new Promise((resolve) =>
+          setTimeout(resolve, 1000 * 2 ** (attempt - 1))
+        );
+      }
+    }
+
+    const code = String(
+      (lastError as { cloudflareCode?: string })?.cloudflareCode || ""
+    );
+
+    // Try FLUX.1 schnell when the primary model itself is unavailable or
+    // temporarily out of capacity. Do not waste another model call when the
+    // account has exhausted its daily neuron allocation.
+    if (
+      model === PRIMARY_CLOUDFLARE_MODEL &&
+      ["3040", "3042", "5007", "5018", "3041", "5035"].includes(code)
+    ) {
+      continue;
+    }
+
+    break;
+  }
+
+  throw lastError instanceof Error
+    ? lastError
+    : new Error("Cloudflare image generation failed");
 }
 
 async function uploadToCloudinary(mime: string, base64: string) {
@@ -260,7 +409,8 @@ export async function generateAndStoreFacebookImage(input: {
   return {
     imageUrl: url,
     provider: "cloudflare",
-    model: CLOUDFLARE_MODEL,
+    model:
+      PRIMARY_CLOUDFLARE_MODEL,
     width: WIDTH,
     height: HEIGHT,
   };
