@@ -23,10 +23,9 @@ async function getBanglaFont() {
       "NotoSerifBengali.ttf"
     );
     const buffer = await fs.readFile(filePath);
-    cachedFont = buffer.buffer.slice(
-      buffer.byteOffset,
-      buffer.byteOffset + buffer.byteLength
-    );
+    const fontBytes = new Uint8Array(buffer.byteLength);
+    fontBytes.set(buffer);
+    cachedFont = fontBytes.buffer;
     return cachedFont;
   } catch (error) {
     console.error("KhelaTV Bengali font load error:", error);
