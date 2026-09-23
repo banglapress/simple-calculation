@@ -32,7 +32,7 @@ export function defaultFacebookImagePrompt(input: {
     "4:5 portrait composition, realistic and visually strong, one clear subject, natural believable lighting, modern professional newspaper aesthetic.",
     "The image must visually communicate the core event or subject of the story without using any text.",
     "Do not add words, letters, numbers, captions, logos, watermarks, scoreboards, fake screenshots, fake documents or readable signage.",
-    "Do not create an identifiable fake portrait of a real person. Use a believable generic athlete, stadium, equipment, venue, crowd, trophy or action scene when appropriate.",
+    "Do not create an identifiable fake portrait of a real person. Use an adult generic athlete, stadium, equipment, venue, crowd, trophy or action scene when appropriate.",
     "Avoid excessive cinematic effects, collage, clutter and generic stock-photo appearance.",
     "Keep the main subject inside the central safe area because a branded headline panel will be added by the website.",
     "Category: " + category,
@@ -44,7 +44,52 @@ export function defaultFacebookImagePrompt(input: {
     .join("\n\n");
 }
 
+function detectSport(text: string) {
+  const normalized = text.toLowerCase();
+
+  if (/tennis|টেনিস|ডেভিস কাপ|davis cup/.test(normalized)) {
+    return "professional tennis";
+  }
+  if (/football|ফুটবল|soccer|সকার|premier league|champions league/.test(normalized)) {
+    return "professional football";
+  }
+  if (/cricket|ক্রিকেট|ipl|t20|test match|odi/.test(normalized)) {
+    return "professional cricket";
+  }
+  if (/basketball|বাস্কেটবল|nba/.test(normalized)) {
+    return "professional basketball";
+  }
+  if (/athletics|অ্যাথলেটিক্স|sprint|marathon|দৌড়/.test(normalized)) {
+    return "professional athletics";
+  }
+
+  return "professional sport";
+}
+
+function buildSafeFallbackPrompt(originalPrompt: string) {
+  const sport = detectSport(originalPrompt);
+
+  return [
+    "Create a premium editorial sports photograph for a Bangladeshi digital newsroom.",
+    "Show an adult professional athlete in " + sport + ".",
+    "Show a high-stakes international team competition or major tournament moment, with the athlete competing or celebrating on a professional court or field.",
+    "Use a realistic newspaper-photography aesthetic, natural stadium lighting, believable action, and a clean 4:5 portrait composition.",
+    "Do not depict any specific real person or recognizable public figure. Use a generic adult athlete with an unidentifiable face.",
+    "Do not include text, letters, numbers, captions, logos, watermarks, scoreboards, flags with readable symbols, fake documents, or readable signage.",
+    "Keep the composition uncluttered with one clear central subject and enough negative space for a headline overlay.",
+  ].join("\n\n");
+}
+
+function isFlaggedResponse(raw: string) {
+  return /(?:code['":\\s]*3030|output has been flagged|choose another prompt)/i.test(
+    raw
+  );
+}
+
 function classifyError(status: number, raw: string) {
+  if (isFlaggedResponse(raw)) {
+    return "Cloudflare safety filter flagged the generated output";
+  }
   if (status === 429 || /rate.?limit|quota/i.test(raw)) return "Cloudflare rate limit/quota";
   if (status === 401 || /invalid.+token|authentication/i.test(raw)) return "Cloudflare API token is invalid";
   if (status === 403 || /permission|not authorized|insufficient/i.test(raw)) return "Cloudflare API token does not have Workers AI permission";
@@ -107,7 +152,8 @@ async function generateBytes(prompt: string) {
     if (!response.ok) {
       throw new Error(
         "Cloudflare image generation failed: " +
-          classifyError(response.status, raw)
+          classifyError(response.status, raw) +
+          (isFlaggedResponse(raw) ? " [3030]" : "")
       );
     }
 
@@ -194,7 +240,21 @@ async function uploadToCloudinary(mime: string, base64: string) {
 export async function generateAndStoreFacebookImage(input: {
   prompt: string;
 }) {
-  const image = await generateBytes(input.prompt.trim());
+  const originalPrompt = input.prompt.trim();
+
+  let image;
+  try {
+    image = await generateBytes(originalPrompt);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+
+    if (!message.includes("[3030]")) {
+      throw error;
+    }
+
+    image = await generateBytes(buildSafeFallbackPrompt(originalPrompt));
+  }
+
   const url = await uploadToCloudinary(image.mime, image.base64);
 
   return {
