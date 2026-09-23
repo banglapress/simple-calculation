@@ -11,6 +11,7 @@ let cachedFont: ArrayBuffer | null = null;
 
 async function getBanglaFont() {
   if (cachedFont) return cachedFont;
+
   try {
     const cssResponse = await fetch(
       "https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@700&display=swap",
@@ -22,14 +23,22 @@ async function getBanglaFont() {
         cache: "force-cache",
       }
     );
+
     if (!cssResponse.ok) return null;
+
     const css = await cssResponse.text();
-    const match = css.match(/src:\s*url\(([^)]+)\)\s*format\(['"]woff2['"]\)/i);
+    const match = css.match(
+      /src:\s*url\(([^)]+)\)\s*format\(['"]woff2['"]\)/i
+    );
+
     if (!match?.[1]) return null;
+
     const fontResponse = await fetch(match[1].replace(/['"]/g, ""), {
       cache: "force-cache",
     });
+
     if (!fontResponse.ok) return null;
+
     cachedFont = await fontResponse.arrayBuffer();
     return cachedFont;
   } catch {
@@ -40,20 +49,28 @@ async function getBanglaFont() {
 function absoluteImageUrl(value: string | null | undefined) {
   const image = String(value || "").trim();
   if (!image) return "";
-  if (image.startsWith("http://") || image.startsWith("https://")) return image;
+
+  if (image.startsWith("http://") || image.startsWith("https://")) {
+    return image;
+  }
+
   const base =
     process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ||
     "https://www.khelatv.com";
+
   return base + (image.startsWith("/") ? image : "/" + image);
 }
 
 async function loadImageDataUrl(url: string) {
+  if (!url) return "";
+
   try {
     const response = await fetch(url, {
       headers: {
         "User-Agent":
           "Mozilla/5.0 (compatible; KhelaTV-Facebook-Card/1.0; +https://www.khelatv.com)",
-        Accept: "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+        Accept:
+          "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
       },
       cache: "force-cache",
     });
@@ -77,21 +94,45 @@ async function loadImageDataUrl(url: string) {
 }
 
 export async function GET(
-  context: { params: Promise<{ id: string }> }
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = await context.params;
+  const { id } = await params;
 
   const post = await prisma.post.findUnique({
     where: { id },
-    include: { categories: { select: { name: true } } },
+    include: {
+      categories: {
+        select: { name: true },
+      },
+    },
   });
 
   if (!post) {
-    const support = String(post.excerpt || "")
+    return new Response("Post not found", { status: 404 });
+  }
+
+  if (post.status !== "PUBLISHED") {
+    const session = await getServerSession(authOptions);
+    const role = session?.user?.role;
+
+    if (!role || !["EDITOR", "ADMIN"].includes(role)) {
+      return new Response("Forbidden", { status: 403 });
+    }
+  }
+
+  const title = String(post.title || "").trim();
+  const support = String(post.excerpt || "")
     .replace(/<[^>]+>/g, " ")
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, 150);
+  const categoryName = post.categories[0]?.name || "Sports";
+  const sourceImage = absoluteImageUrl(
+    post.facebookImageUrl || post.featureImage
+  );
+  const imageUrl = await loadImageDataUrl(sourceImage);
+  const font = await getBanglaFont();
 
   return new ImageResponse(
     <div
@@ -195,7 +236,8 @@ export async function GET(
           style={{
             display: "flex",
             maxWidth: 970,
-            fontSize: title.length > 90 ? 48 : title.length > 60 ? 54 : 60,
+            fontSize:
+              title.length > 90 ? 48 : title.length > 60 ? 54 : 60,
             lineHeight: 1.16,
             fontWeight: 700,
           }}
