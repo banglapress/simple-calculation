@@ -71,6 +71,7 @@ export async function PUT(
     subcategoryIds,
     facebookCaption,
     facebookAutoPost,
+    facebookImageUrl,
   } = body;
 
   const normalizedStatus =
@@ -92,7 +93,10 @@ export async function PUT(
       status: normalizedStatus,
       placement,
       featureImage,
-      facebookImageUrl: typeof featureImage === "string" ? featureImage.trim() : "",
+      facebookImageUrl:
+        typeof facebookImageUrl === "string"
+          ? facebookImageUrl.trim()
+          : undefined,
       galleryImages: JSON.stringify(normalizeGallery(galleryImages)),
       isBreaking,
       facebookCaption:
