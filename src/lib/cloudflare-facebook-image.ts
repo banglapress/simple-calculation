@@ -76,7 +76,7 @@ async function generateBytes(prompt: string) {
       "https://api.cloudflare.com/client/v4/accounts/" +
         encodeURIComponent(accountId) +
         "/ai/run/" +
-        encodeURIComponent(CLOUDFLARE_MODEL),
+        CLOUDFLARE_MODEL,
       {
         method: "POST",
         headers: {
