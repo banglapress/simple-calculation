@@ -30,7 +30,7 @@ type Placement =
   | "EDITORS_PICK"
   | "TRENDING";
 
-export default function PostEditorForm() {
+export default function PostEditorForm({ postId }: { postId?: string }) {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [editorInitialHtml, setEditorInitialHtml] = useState("");
@@ -51,11 +51,63 @@ export default function PostEditorForm() {
   const [aiMessage, setAiMessage] = useState("");
 
   useEffect(() => {
-    axios
-      .get<Category[]>("/api/admin/categories")
-      .then((res) => setCategories(res.data))
-      .catch(() => setMessage("❌ ক্যাটাগরি লোড করা যায়নি"));
-  }, []);
+    let cancelled = false;
+
+    async function load() {
+      try {
+        const categoryResponse = await axios.get<Category[]>(
+          "/api/admin/categories"
+        );
+
+        if (cancelled) return;
+        setCategories(categoryResponse.data);
+
+        if (!postId) return;
+
+        const postResponse = await axios.get("/api/posts/" + postId);
+        if (cancelled) return;
+
+        const existingPost = postResponse.data;
+
+        setTitle(String(existingPost.title || ""));
+        setContent(String(existingPost.content || ""));
+        setEditorInitialHtml(String(existingPost.content || ""));
+        setTags(String(existingPost.tags || ""));
+        setPlacement(existingPost.placement || "NONE");
+        setIsBreaking(Boolean(existingPost.isBreaking));
+
+        const existingCategoryId =
+          existingPost.categories?.[0]?.id != null
+            ? String(existingPost.categories[0].id)
+            : "";
+        const existingSubcategoryId =
+          existingPost.subcategories?.[0]?.id != null
+            ? String(existingPost.subcategories[0].id)
+            : "";
+
+        setCategoryId(existingCategoryId);
+
+        const selected = categoryResponse.data.find(
+          (category) => String(category.id) === existingCategoryId
+        );
+        setSubcategories(selected?.subcategories || []);
+        setSubcategoryId(existingSubcategoryId);
+      } catch (error) {
+        const responseMessage = axios.isAxiosError(error)
+          ? error.response?.data?.message
+          : null;
+        setMessage(
+          "❌ " + (responseMessage || "পোস্ট লোড করা যায়নি")
+        );
+      }
+    }
+
+    load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [postId]);
 
   const selectedCategory = categories.find(
     (category) => String(category.id) === categoryId
@@ -152,7 +204,7 @@ export default function PostEditorForm() {
     try {
       const uploadedUrl = await handleImageUpload();
 
-      await axios.post("/api/posts", {
+      const payload = {
         title,
         content,
         categoryIds: categoryId ? [Number(categoryId)] : [],
@@ -162,12 +214,23 @@ export default function PostEditorForm() {
         featureImage: uploadedUrl || "",
         placement,
         isBreaking,
-      });
+      };
+
+      const response = postId
+        ? await axios.put("/api/posts/" + postId, payload)
+        : await axios.post("/api/posts", payload);
+
+      const savedPostId = response.data?.id || postId;
+
+      if (!postId && savedPostId) {
+        window.location.assign("/dashboard/reporter/edit/" + savedPostId);
+        return;
+      }
 
       setMessage(
         submissionStatus === "DRAFT"
-          ? "✅ পোস্ট খসড়া হিসেবে সংরক্ষিত হয়েছে"
-          : "✅ পোস্ট সম্পাদকের কাছে পাঠানো হয়েছে"
+          ? "✅ পোস্টের খসড়া সংরক্ষিত হয়েছে"
+          : "✅ পোস্টটি সম্পাদকের কাছে পাঠানো হয়েছে"
       );
     } catch (error) {
       const responseMessage = axios.isAxiosError(error)
