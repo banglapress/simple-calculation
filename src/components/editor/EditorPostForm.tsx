@@ -212,157 +212,40 @@ export default function EditorPostForm({ postId }: { postId: string }) {
     return lines;
   };
 
-  const makeFacebookCard = async (source: string | File) => {
+  const makeFacebookCard = async (sourceUrl: string) => {
     if (!post) throw new Error("পোস্ট পাওয়া যায়নি");
+    if (!sourceUrl.trim()) throw new Error("Feature Image পাওয়া যায়নি");
 
-    await loadFacebookCardFont();
-
-    const { image, revoke } = await loadCardSourceImage(source);
-
-    try {
-      const canvas = document.createElement("canvas");
-      canvas.width = 1080;
-      canvas.height = 1350;
-
-      const ctx = canvas.getContext("2d");
-      if (!ctx) throw new Error("Canvas তৈরি করা যায়নি");
-
-      const imageHeight = 790;
-      const imageScale = Math.max(
-        1080 / image.naturalWidth,
-        imageHeight / image.naturalHeight
-      );
-      const drawWidth = image.naturalWidth * imageScale;
-      const drawHeight = image.naturalHeight * imageScale;
-
-      ctx.fillStyle = "#0f172a";
-      ctx.fillRect(0, 0, 1080, 1350);
-
-      ctx.drawImage(
-        image,
-        (1080 - drawWidth) / 2,
-        96 + (imageHeight - drawHeight) / 2,
-        drawWidth,
-        drawHeight
-      );
-
-      const imageGradient = ctx.createLinearGradient(0, 96, 0, 96 + imageHeight);
-      imageGradient.addColorStop(0, "rgba(0,0,0,0.02)");
-      imageGradient.addColorStop(1, "rgba(0,0,0,0.64)");
-      ctx.fillStyle = imageGradient;
-      ctx.fillRect(0, 96, 1080, imageHeight);
-
-      ctx.fillStyle = "#111827";
-      ctx.fillRect(0, 0, 1080, 96);
-
-      ctx.fillStyle = "#ffffff";
-      ctx.font = '700 30px KhelaTVBengali';
-      ctx.textBaseline = "middle";
-      ctx.fillText("KhelaTV", 48, 48);
-
-      ctx.fillStyle = "rgba(255,255,255,0.85)";
-      ctx.font = '700 22px Arial';
-      ctx.fillText("SPORTS NEWS", 1080 - 48 - ctx.measureText("SPORTS NEWS").width, 48);
-
-      const categoryName =
-        post.categories?.[0]?.name?.trim() || "অন্যান্য খেলা";
-
-      ctx.fillStyle = "#ffffff";
-      ctx.font = '700 50px KhelaTVBengali';
-      ctx.textBaseline = "top";
-      ctx.shadowColor = "rgba(0,0,0,0.65)";
-      ctx.shadowBlur = 12;
-      ctx.shadowOffsetY = 3;
-      ctx.fillText("খেলা টিভি", 42, 96 + imageHeight - 104);
-
-      ctx.shadowBlur = 0;
-      ctx.shadowOffsetY = 0;
-      ctx.font = '700 24px Arial';
-      ctx.fillText("khelatv.com", 42, 96 + imageHeight - 48);
-
-      ctx.fillStyle = "#f5f0e8";
-      ctx.fillRect(0, 886, 1080, 446);
-
-      ctx.fillStyle = "#b42318";
-      ctx.font = '700 24px KhelaTVBengali';
-      ctx.fillText(categoryName, 54, 924);
-
-      const title = String(post.title || "").trim();
-      ctx.fillStyle = "#17130f";
-      ctx.font =
-        title.length > 90
-          ? '700 48px KhelaTVBengali'
-          : title.length > 60
-            ? '700 54px KhelaTVBengali'
-            : '700 60px KhelaTVBengali';
-
-      const titleLines = wrapCanvasText(ctx, title, 970, 2);
-      const titleLineHeight = title.length > 90 ? 56 : title.length > 60 ? 63 : 70;
-      titleLines.forEach((line, index) => {
-        ctx.fillText(line, 54, 968 + index * titleLineHeight);
-      });
-
-      const plainText = String(post.content || "")
-        .replace(/<[^>]+>/g, " ")
-        .replace(/&nbsp;/g, " ")
-        .replace(/\s+/g, " ")
-        .trim()
-        .slice(0, 150);
-
-      if (plainText) {
-        ctx.fillStyle = "#5b5147";
-        ctx.font = '400 28px KhelaTVBengali';
-        const excerptLines = wrapCanvasText(ctx, plainText, 940, 3);
-        const excerptTop = 968 + titleLines.length * titleLineHeight + 18;
-        excerptLines.forEach((line, index) => {
-          ctx.fillText(line, 54, excerptTop + index * 38);
-        });
+    const response = await fetch(
+      "/api/facebook/card/" +
+        postId +
+        "?sourceImage=" +
+        encodeURIComponent(sourceUrl) +
+        "&preview=" +
+        Date.now(),
+      {
+        method: "GET",
+        cache: "no-store",
+        credentials: "include",
       }
+    );
 
-      ctx.fillStyle = "#7c7064";
-      ctx.font = '400 20px Arial';
-      ctx.fillText("www.khelatv.com", 54, 1292);
-
-      ctx.fillStyle = "#b42318";
-      ctx.fillRect(0, 1332, 1080, 18);
-
-      const blob = await new Promise<Blob>((resolve, reject) => {
-        canvas.toBlob((value) => {
-          if (!value) {
-            reject(new Error("Facebook Card PNG তৈরি করা যায়নি"));
-            return;
-          }
-          resolve(value);
-        }, "image/png");
-      });
-
-      return new File([blob], "khelatv-facebook-card.png", {
-        type: "image/png",
-      });
-    } finally {
-      revoke();
+    if (!response.ok) {
+      const message = await response.text().catch(() => "");
+      throw new Error(
+        message || "Facebook Photo Card তৈরি করা যায়নি"
+      );
     }
-  };
 
-  const uploadFile = async (file: File) => {
-    const formData = new FormData();
-    formData.append("file", file);
+    const blob = await response.blob();
 
-    const res = await fetch("/api/upload", {
-      method: "POST",
-      body: formData,
+    if (!blob.size) {
+      throw new Error("Facebook Photo Card-এর image bytes পাওয়া যায়নি");
+    }
+
+    return new File([blob], "khelatv-facebook-card.png", {
+      type: blob.type || "image/png",
     });
-
-    if (!res.ok) {
-      const data = await res.json().catch(() => null);
-      throw new Error(data?.error || "Image upload failed");
-    }
-
-    const data = await res.json();
-    const url = String(data.url || "").trim();
-
-    if (!url) throw new Error("Cloudinary image URL পাওয়া যায়নি");
-    return url;
   };
 
   const generateAIImage = async () => {
@@ -511,8 +394,8 @@ export default function EditorPostForm({ postId }: { postId: string }) {
     try {
       const url = await uploadFile(featureImageFile);
 
-      setMessage("⏳ বাংলা Unicode Facebook Card তৈরি হচ্ছে...");
-      const cardFile = await makeFacebookCard(featureImageFile);
+      setMessage("⏳ Unicode বাংলা Facebook Card তৈরি হচ্ছে...");
+      const cardFile = await makeFacebookCard(url);
       const cardUrl = await uploadFile(cardFile);
 
       const response = await axios.put("/api/editor/posts/" + postId, {
