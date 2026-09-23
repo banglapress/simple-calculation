@@ -91,7 +91,9 @@ export default function EditorPostForm({ postId }: { postId: string }) {
   const [galleryFiles, setGalleryFiles] = useState<File[]>([]);
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
-  const [facebookImageBusy, setFacebookImageBusy] = useState(false);\n  const [facebookImageUseBusy, setFacebookImageUseBusy] = useState(false);\n  const [cardPreviewVersion, setCardPreviewVersion] = useState(() => Date.now());
+  const [facebookImageBusy, setFacebookImageBusy] = useState(false);
+  const [facebookImageUseBusy, setFacebookImageUseBusy] = useState(false);
+  const [cardPreviewVersion, setCardPreviewVersion] = useState(() => Date.now());
 
   useEffect(() => {
     async function fetchData() {
