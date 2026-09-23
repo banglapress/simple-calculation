@@ -97,14 +97,6 @@ export async function PUT(
       facebookCaption:
         typeof facebookCaption === "string" ? facebookCaption : undefined,
       facebookAutoPost: shouldAutoPost,
-      facebookStatus:
-        normalizedStatus !== "PUBLISHED"
-          ? shouldAutoPost
-            ? featureImage?.trim()
-              ? "READY"
-              : "NONE"
-            : "NONE"
-          : undefined,
       facebookError:
         normalizedStatus !== "PUBLISHED" ? null : undefined,
       author: authorId ? { connect: { id: authorId } } : undefined,
