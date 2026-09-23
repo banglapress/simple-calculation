@@ -1,4 +1,6 @@
 import { ImageResponse } from "next/og";
+import { promises as fs } from "node:fs";
+import path from "node:path";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { prisma } from "@/lib/prisma";
@@ -13,19 +15,20 @@ async function getBanglaFont() {
   if (cachedFont) return cachedFont;
 
   try {
-    // Use a real TTF font with full Unicode Bengali glyphs.
-    // Satori/next-og can consume TTF directly and performs Bengali shaping
-    // from the Unicode text in the JSX.
-    const fontResponse = await fetch(
-      "https://raw.githubusercontent.com/notofonts/noto-fonts/main/hinted/ttf/NotoSansBengali/NotoSansBengali-Bold.ttf",
-      { cache: "force-cache" }
+    const filePath = path.join(
+      process.cwd(),
+      "public",
+      "fonts",
+      "NotoSerifBengali.ttf"
     );
-
-    if (!fontResponse.ok) return null;
-
-    cachedFont = await fontResponse.arrayBuffer();
+    const buffer = await fs.readFile(filePath);
+    cachedFont = buffer.buffer.slice(
+      buffer.byteOffset,
+      buffer.byteOffset + buffer.byteLength
+    );
     return cachedFont;
-  } catch {
+  } catch (error) {
+    console.error("KhelaTV Bengali font load error:", error);
     return null;
   }
 }
@@ -113,7 +116,11 @@ export async function GET(
     .slice(0, 150);
   const categoryName = post.categories[0]?.name || "Sports";
   // The article feature image is the single source of truth for the Facebook card.
-  const sourceImage = absoluteImageUrl(post.featureImage);
+  const requestUrl = new URL(_request.url);
+  const overrideSourceImage = requestUrl.searchParams.get("sourceImage");
+  const sourceImage = absoluteImageUrl(
+    overrideSourceImage || post.featureImage
+  );
   const imageUrl = await loadImageDataUrl(sourceImage);
   const font = await getBanglaFont();
 
@@ -126,7 +133,7 @@ export async function GET(
         flexDirection: "column",
         backgroundColor: "#f5f0e8",
         color: "#17130f",
-        fontFamily: "Noto Sans Bengali",
+        fontFamily: "NotoSerifBengali",
       }}
     >
       <div
@@ -306,7 +313,13 @@ export async function GET(
       fonts: font
         ? [
             {
-              name: "Noto Sans Bengali",
+              name: "NotoSerifBengali",
+              data: font,
+              weight: 400,
+              style: "normal",
+            },
+            {
+              name: "NotoSerifBengali",
               data: font,
               weight: 700,
               style: "normal",
