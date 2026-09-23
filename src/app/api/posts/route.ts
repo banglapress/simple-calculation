@@ -122,12 +122,11 @@ export async function POST(req: NextRequest) {
 
   // Reporter submissions can never bypass the editorial queue.
   // DRAFT stays DRAFT; every non-draft submission goes to PENDING.
-  const normalizedStatus =
-    user.role === "REPORTER"
-      ? requestedStatus === "DRAFT"
-        ? "DRAFT"
-        : "PENDING"
-      : requestedStatus;
+  let normalizedStatus = requestedStatus;
+
+  if (user.role === "REPORTER" && requestedStatus !== "DRAFT") {
+    normalizedStatus = "PENDING";
+  }
 
   try {
     const post = await prisma.post.create({
