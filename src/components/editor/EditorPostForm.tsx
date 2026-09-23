@@ -91,8 +91,6 @@ export default function EditorPostForm({ postId }: { postId: string }) {
   const [galleryFiles, setGalleryFiles] = useState<File[]>([]);
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
-  const [facebookImageBusy, setFacebookImageBusy] = useState(false);
-  const [facebookImageUseBusy, setFacebookImageUseBusy] = useState(false);
   const [cardPreviewVersion, setCardPreviewVersion] = useState(() => Date.now());
 
   useEffect(() => {
@@ -231,77 +229,6 @@ export default function EditorPostForm({ postId }: { postId: string }) {
     setGalleryImages((current) =>
       current.filter((_, imageIndex) => imageIndex !== index)
     );
-  };
-
-  const generateFacebookImage = async () => {
-    if (!post) return;
-
-    setFacebookImageBusy(true);
-    setMessage("");
-
-    try {
-      const response = await axios.post(
-        "/api/editor/posts/" + postId + "/facebook-image",
-        {
-          prompt: post.facebookImagePrompt || "",
-        }
-      );
-
-      setPost({
-        ...post,
-        facebookImageUrl: response.data.imageUrl,
-        facebookImagePrompt: response.data.prompt,
-        facebookStatus: "READY",
-        facebookError: null,
-      });
-
-      setMessage(
-        "✅ AI image তৈরি হয়েছে। ছবি পছন্দ হলে “এই ছবি Article Cover হিসেবে ব্যবহার করুন” চাপুন।"
-      );
-    } catch (error) {
-      setMessage(
-        "❌ " +
-          (axios.isAxiosError(error)
-            ? error.response?.data?.message ||
-              "Facebook AI image তৈরি করা যায়নি"
-            : "Facebook AI image তৈরি করা যায়নি")
-      );
-    } finally {
-      setFacebookImageBusy(false);
-    }
-  };
-
-  const useFacebookImage = async () => {
-    if (!post?.facebookImageUrl) return;
-
-    setFacebookImageUseBusy(true);
-    setMessage("");
-
-    try {
-      const response = await axios.post(
-        "/api/editor/posts/" + postId + "/use-facebook-image"
-      );
-
-      setPost({
-        ...post,
-        featureImage: response.data.post.featureImage,
-        facebookStatus: response.data.post.facebookStatus,
-        facebookError: null,
-      });
-      setCardPreviewVersion(Date.now());
-      setMessage(
-        "✅ এই AI image-টি Article Cover হিসেবে ব্যবহার করা হয়েছে। এখন এই একই ছবি Facebook Card-এর মূল ছবিও।"
-      );
-    } catch (error) {
-      setMessage(
-        "❌ " +
-          (axios.isAxiosError(error)
-            ? error.response?.data?.message || "AI image-টি Cover হিসেবে সেট করা যায়নি"
-            : "AI image-টি Cover হিসেবে সেট করা যায়নি")
-      );
-    } finally {
-      setFacebookImageUseBusy(false);
-    }
   };
 
   const publishToFacebook = async () => {
