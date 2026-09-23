@@ -754,486 +754,545 @@ export default function EditorPostForm({ postId }: { postId: string }) {
   if (loading || !post) return <p>⏳ লোড হচ্ছে...</p>;
 
   return (
-    <form
-      onSubmit={handleUpdate}
-      className="space-y-5 bg-white p-5 rounded-xl shadow-sm border"
-    >
-      <input
-        type="text"
-        value={post.title}
-        onChange={(e) => setPost({ ...post, title: e.target.value })}
-        className="w-full border p-3 rounded-lg"
-        placeholder="শিরোনাম"
-      />
-
-      <LexicalEditor
-        initialHtml={post.content}
-        onChange={(val) => setPost({ ...post, content: val })}
-      />
-
-      <input
-        type="text"
-        value={post.tags || ""}
-        onChange={(e) => setPost({ ...post, tags: e.target.value })}
-        className="w-full border p-3 rounded-lg"
-        placeholder="ট্যাগ (কমা দিয়ে)"
-      />
-
-      {post.deskStory && (
-        <div className="border rounded-xl p-4 bg-purple-50 space-y-3">
-          <div>
-            <p className="font-semibold">🤖 AI Newsroom Research</p>
-            <p className="text-xs text-gray-600 mt-1">
-              Story: {post.deskStory.titleHint} · {post.deskStory.sourceCount} source · Relevance{" "}
-              {post.deskStory.relevanceScore ?? "—"}/100
-            </p>
-          </div>
-
-          {post.deskStory.warning && (
-            <p className="text-sm text-orange-700">{post.deskStory.warning}</p>
-          )}
-
-          {post.deskStory.sources?.length > 0 && (
-            <div className="space-y-1 text-xs">
-              {post.deskStory.sources.map((source) => (
-                <a
-                  key={source.url}
-                  href={source.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="block truncate text-blue-700 underline"
+    <form onSubmit={handleUpdate} className="space-y-5">
+      <div className="grid xl:grid-cols-[minmax(0,1fr)_390px] gap-6 items-start">
+        <main className="min-w-0 space-y-5">
+          <section className="rounded-xl border bg-white shadow-sm">
+            <div className="p-5">
+              <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Article
+                  </p>
+                  <p className="text-sm text-slate-500 mt-1">
+                    মূল সংবাদ এখানেই লিখুন ও সম্পাদনা করুন।
+                  </p>
+                </div>
+                <span
+                  className={
+                    "inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold " +
+                    (post.status === "PUBLISHED"
+                      ? "bg-green-100 text-green-700"
+                      : post.status === "PENDING"
+                        ? "bg-amber-100 text-amber-700"
+                        : "bg-slate-100 text-slate-700")
+                  }
                 >
-                  {(source.feed?.name ? source.feed.name + " — " : "") +
-                    (source.title || source.url)}
-                </a>
-              ))}
+                  {post.status}
+                </span>
+              </div>
+
+              <input
+                type="text"
+                value={post.title}
+                onChange={(e) => setPost({ ...post, title: e.target.value })}
+                className="w-full border-0 border-b border-slate-200 px-1 pb-4 text-3xl font-bold outline-none focus:border-blue-500"
+                placeholder="শিরোনাম"
+              />
+
+              <div className="mt-5">
+                <LexicalEditor
+                  initialHtml={post.content}
+                  onChange={(val) => setPost({ ...post, content: val })}
+                />
+              </div>
+
+              <div className="mt-4">
+                <label className="block text-xs font-semibold text-slate-500 mb-2">
+                  ট্যাগ
+                </label>
+                <input
+                  type="text"
+                  value={post.tags || ""}
+                  onChange={(e) => setPost({ ...post, tags: e.target.value })}
+                  className="w-full border rounded-lg px-3 py-2.5 outline-none focus:border-blue-500"
+                  placeholder="ট্যাগ (কমা দিয়ে)"
+                />
+              </div>
             </div>
+          </section>
+
+          {post.deskStory && (
+            <details className="rounded-xl border bg-purple-50 shadow-sm" open>
+              <summary className="cursor-pointer px-5 py-4 font-semibold">
+                🤖 AI Newsroom Research
+                <span className="ml-2 text-xs font-normal text-slate-500">
+                  {post.deskStory.sourceCount} source · Relevance{" "}
+                  {post.deskStory.relevanceScore ?? "—"}/100
+                </span>
+              </summary>
+
+              <div className="border-t px-5 py-4 space-y-3">
+                <p className="text-sm">
+                  <strong>Story:</strong> {post.deskStory.titleHint}
+                </p>
+
+                {post.deskStory.warning && (
+                  <p className="text-sm text-orange-700">
+                    {post.deskStory.warning}
+                  </p>
+                )}
+
+                {post.deskStory.sources?.length > 0 && (
+                  <div className="grid md:grid-cols-2 gap-2">
+                    {post.deskStory.sources.map((source) => (
+                      <a
+                        key={source.url}
+                        href={source.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="block truncate rounded-lg border bg-white px-3 py-2 text-xs text-blue-700 hover:bg-blue-50"
+                      >
+                        {(source.feed?.name ? source.feed.name + " — " : "") +
+                          (source.title || source.url)}
+                      </a>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </details>
           )}
+
+          <details className="rounded-xl border bg-white shadow-sm" open>
+            <summary className="cursor-pointer px-5 py-4 font-semibold">
+              🖼️ Article-এর ভিতরের ছবি
+              <span className="ml-2 text-xs font-normal text-slate-500">
+                {galleryImages.length}/20
+              </span>
+            </summary>
+
+            <div className="border-t p-5 space-y-4">
+              {galleryImages.length > 0 && (
+                <div className="grid sm:grid-cols-3 gap-3">
+                  {galleryImages.map((src, index) => (
+                    <div
+                      key={src + index}
+                      className="relative border rounded-lg p-1 bg-white"
+                    >
+                      <Image
+                        src={src}
+                        alt={"Gallery " + (index + 1)}
+                        width={300}
+                        height={200}
+                        className="w-full aspect-video object-cover rounded"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeGalleryImage(index)}
+                        className="absolute top-2 right-2 bg-black/70 text-white rounded px-2 py-1 text-xs"
+                      >
+                        ✕ মুছুন
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                  setGalleryFiles(Array.from(e.target.files || []).slice(0, 20))
+                }
+              />
+
+              {galleryFiles.length > 0 && (
+                <p className="text-xs text-blue-700">
+                  নতুন {galleryFiles.length}টি ছবি save করার সময় upload হবে।
+                </p>
+              )}
+            </div>
+          </details>
+        </main>
+
+        <aside className="min-w-0 space-y-4 xl:sticky xl:top-4 xl:max-h-[calc(100vh-2rem)] xl:overflow-y-auto xl:pr-1">
+          <section className="rounded-xl border bg-white shadow-sm p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="font-semibold">🚀 প্রকাশনা</p>
+                <p className="text-xs text-slate-500 mt-1">
+                  Status, save এবং Facebook publish।
+                </p>
+              </div>
+              <span className="text-xs font-medium text-slate-500">
+                {post.facebookStatus || "NONE"}
+              </span>
+            </div>
+
+            <select
+              value={post.status}
+              onChange={(e) => setPost({ ...post, status: e.target.value })}
+              className="w-full border rounded-lg px-3 py-2.5 mt-4"
+            >
+              <option value="DRAFT">Draft</option>
+              <option value="PENDING">Pending</option>
+              <option value="PUBLISHED">Published</option>
+            </select>
+
+            <label className="inline-flex items-center gap-2 mt-3 text-sm">
+              <input
+                type="checkbox"
+                checked={Boolean(post.isBreaking)}
+                onChange={(e) =>
+                  setPost({ ...post, isBreaking: e.target.checked })
+                }
+              />
+              🛑 ব্রেকিং নিউজ
+            </label>
+
+            <button
+              type="submit"
+              disabled={saving}
+              className="w-full mt-4 bg-blue-600 disabled:opacity-50 text-white px-4 py-3 rounded-lg font-semibold"
+            >
+              {saving ? "💾 সংরক্ষণ হচ্ছে..." : "💾 আপডেট / সংরক্ষণ করুন"}
+            </button>
+
+            <button
+              type="button"
+              onClick={publishToFacebook}
+              disabled={
+                post.status !== "PUBLISHED" ||
+                post.facebookStatus === "PUBLISHED"
+              }
+              className="w-full mt-2 bg-blue-700 disabled:opacity-50 text-white px-4 py-2.5 rounded-lg text-sm font-medium"
+            >
+              {post.facebookStatus === "PUBLISHED"
+                ? "✅ Facebook-এ প্রকাশিত"
+                : "📘 Facebook-এ এখনই প্রকাশ করুন"}
+            </button>
+
+            <label className="flex items-start gap-2 mt-3 text-xs">
+              <input
+                type="checkbox"
+                checked={Boolean(post.facebookAutoPost)}
+                onChange={(e) =>
+                  setPost({ ...post, facebookAutoPost: e.target.checked })
+                }
+                className="mt-0.5"
+              />
+              <span>Article Publish হলে Facebook-এ auto-post</span>
+            </label>
+
+            {post.status !== "PUBLISHED" && (
+              <p className="text-xs text-orange-700 mt-2">
+                Manual Facebook publish-এর আগে Article Publish করুন।
+              </p>
+            )}
+          </section>
+
+          <details className="rounded-xl border bg-white shadow-sm" open>
+            <summary className="cursor-pointer px-4 py-3 font-semibold">
+              ⚙️ Article Settings
+            </summary>
+
+            <div className="border-t p-4 space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 mb-2">
+                  Reporter
+                </label>
+                <select
+                  value={post.authorId || ""}
+                  onChange={(e) =>
+                    setPost({ ...post, authorId: e.target.value })
+                  }
+                  className="w-full border rounded-lg px-3 py-2.5"
+                >
+                  <option value="">-- রিপোর্টার নির্বাচন করুন --</option>
+                  {reporters.map((rep) => (
+                    <option key={rep.id} value={rep.id}>
+                      {rep.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <p className="block text-xs font-semibold text-slate-500 mb-2">
+                  Category
+                </p>
+                <div className="space-y-1.5">
+                  {categories.map((cat) => (
+                    <label key={cat.id} className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        value={cat.id}
+                        checked={selectedCategories.includes(cat.id)}
+                        onChange={(e) => {
+                          const id = parseInt(e.target.value);
+                          setSelectedCategories((prev) =>
+                            prev.includes(id)
+                              ? prev.filter((x) => x !== id)
+                              : [...prev, id]
+                          );
+                        }}
+                      />
+                      {cat.name}
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <p className="block text-xs font-semibold text-slate-500 mb-2">
+                  Subcategory
+                </p>
+                <div className="space-y-1.5 max-h-44 overflow-y-auto pr-1">
+                  {subcategories.map((sub) => (
+                    <label
+                      key={sub.id}
+                      className="flex items-center gap-2 text-sm"
+                    >
+                      <input
+                        type="checkbox"
+                        value={sub.id}
+                        checked={selectedSubcategories.includes(sub.id)}
+                        onChange={(e) => {
+                          const id = parseInt(e.target.value);
+                          setSelectedSubcategories((prev) =>
+                            prev.includes(id)
+                              ? prev.filter((x) => x !== id)
+                              : [...prev, id]
+                          );
+                        }}
+                      />
+                      {sub.name}
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 mb-2">
+                  Placement
+                </label>
+                <select
+                  value={post.placement || "NONE"}
+                  onChange={(e) =>
+                    setPost({ ...post, placement: e.target.value })
+                  }
+                  className="w-full border rounded-lg px-3 py-2.5"
+                >
+                  <option value="NONE">🟤 সাধারণ</option>
+                  <option value="LEAD">🔴 লিড</option>
+                  <option value="SECOND_LEAD">🟠 সেকেন্ড লিড</option>
+                  <option value="EDITORS_PICK">⭐ সম্পাদকের পছন্দ</option>
+                  <option value="TRENDING">🔥 ট্রেন্ডিং</option>
+                </select>
+              </div>
+            </div>
+          </details>
+
+          <details className="rounded-xl border bg-white shadow-sm" open>
+            <summary className="cursor-pointer px-4 py-3 font-semibold">
+              📷 Feature Image
+            </summary>
+
+            <div className="border-t p-4 space-y-4">
+              <label className="block bg-blue-600 text-white px-4 py-2.5 rounded-lg text-sm text-center cursor-pointer">
+                🖼️ ছবি বাছাই করুন
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  disabled={featureImageBusy}
+                  onChange={handleFeatureImageChange}
+                />
+              </label>
+
+              {featureImagePreview ? (
+                <div className="space-y-3">
+                  <img
+                    src={featureImagePreview}
+                    alt="Selected feature image preview"
+                    className="w-full max-h-[360px] object-contain rounded-lg border bg-slate-50"
+                  />
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={useSelectedFeatureImage}
+                      disabled={featureImageBusy}
+                      className="bg-green-700 disabled:opacity-50 text-white px-3 py-2 rounded-lg text-sm font-medium"
+                    >
+                      {featureImageBusy ? "⏳ হচ্ছে..." : "✅ ব্যবহার করুন"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (featureImagePreview) {
+                          URL.revokeObjectURL(featureImagePreview);
+                        }
+                        setFeatureImageFile(null);
+                        setFeatureImagePreview(null);
+                        setMessage("");
+                      }}
+                      disabled={featureImageBusy}
+                      className="border px-3 py-2 rounded-lg text-sm"
+                    >
+                      ✕ বাতিল
+                    </button>
+                  </div>
+                </div>
+              ) : post.featureImage ? (
+                <img
+                  src={post.featureImage}
+                  alt="Current Feature Image"
+                  className="w-full aspect-[4/5] object-cover rounded-lg border"
+                />
+              ) : (
+                <p className="text-xs text-slate-500">
+                  এখনো Feature Image দেওয়া হয়নি।
+                </p>
+              )}
+            </div>
+          </details>
+
+          <details className="rounded-xl border bg-white shadow-sm" open>
+            <summary className="cursor-pointer px-4 py-3 font-semibold">
+              🤖 AI Image
+            </summary>
+
+            <div className="border-t p-4 space-y-3">
+              <p className="text-xs text-slate-500">
+                নিজের prompt দিন বা খালি রাখলে Article-এর বিষয় দেখে AI prompt তৈরি করবে।
+              </p>
+
+              <textarea
+                value={aiImagePrompt}
+                onChange={(e) => setAiImagePrompt(e.target.value)}
+                className="w-full min-h-24 border rounded-lg p-3 text-sm"
+                placeholder="AI image prompt..."
+                disabled={aiImageBusy}
+              />
+
+              <button
+                type="button"
+                onClick={generateAIImage}
+                disabled={aiImageBusy}
+                className="w-full bg-purple-700 disabled:opacity-50 text-white px-3 py-2.5 rounded-lg text-sm font-medium"
+              >
+                {aiImageBusy ? "⏳ AI ছবি তৈরি হচ্ছে..." : "✨ AI ছবি তৈরি করুন"}
+              </button>
+
+              {aiGeneratedImageUrl && (
+                <div className="rounded-lg border overflow-hidden bg-slate-50">
+                  <img
+                    src={aiGeneratedImageUrl}
+                    alt="AI generated"
+                    className="w-full aspect-[4/5] object-cover"
+                  />
+                  {post.facebookImagePrompt && (
+                    <p className="p-2 text-[11px] text-slate-500">
+                      {post.facebookImagePrompt}
+                    </p>
+                  )}
+                  <button
+                    type="button"
+                    onClick={useAIImageAsFeature}
+                    disabled={aiImageBusy}
+                    className="w-full bg-green-700 disabled:opacity-50 text-white px-3 py-2.5 text-sm font-medium"
+                  >
+                    ✅ এই AI ছবি Article Cover করুন
+                  </button>
+                </div>
+              )}
+            </div>
+          </details>
+
+          <details className="rounded-xl border bg-white shadow-sm">
+            <summary className="cursor-pointer px-4 py-3 font-semibold">
+              📘 Facebook
+              <span className="ml-2 text-xs font-normal text-slate-500">
+                {post.facebookStatus || "NONE"}
+              </span>
+            </summary>
+
+            <div className="border-t p-4 space-y-4">
+              {post.featureImage ? (
+                <div className="rounded-lg border overflow-hidden bg-slate-50">
+                  <div className="flex items-center justify-between gap-2 px-3 py-2 border-b">
+                    <span className="text-xs font-medium">Photo Card</span>
+                    <button
+                      type="button"
+                      onClick={regenerateFacebookCard}
+                      disabled={featureImageBusy}
+                      className="border px-2.5 py-1.5 rounded text-xs"
+                    >
+                      🔄 রিফ্রেশ
+                    </button>
+                  </div>
+                  <img
+                    src={
+                      (post.facebookImageUrl ||
+                        "/api/facebook/card/" + postId) +
+                      "?preview=" +
+                      cardPreviewVersion
+                    }
+                    alt="Facebook Photo Card"
+                    className="w-full aspect-[4/5] object-cover"
+                  />
+                </div>
+              ) : (
+                <p className="text-xs text-slate-500">
+                  আগে Feature Image সেট করুন।
+                </p>
+              )}
+
+              <textarea
+                value={post.facebookCaption || ""}
+                onChange={(e) =>
+                  setPost({ ...post, facebookCaption: e.target.value })
+                }
+                className="w-full min-h-28 border rounded-lg p-3 text-sm"
+                placeholder="Facebook caption"
+              />
+
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    const response = await axios.post(
+                      "/api/editor/posts/" + postId + "/facebook-caption"
+                    );
+                    setPost({ ...post, facebookCaption: response.data.caption });
+                    setMessage("✅ Facebook caption তৈরি হয়েছে");
+                  } catch (error) {
+                    setMessage(
+                      "❌ " +
+                        (axios.isAxiosError(error)
+                          ? error.response?.data?.message ||
+                            "Facebook caption তৈরি করা যায়নি"
+                          : "Facebook caption তৈরি করা যায়নি")
+                    );
+                  }
+                }}
+                className="w-full border bg-white px-3 py-2 rounded-lg text-sm"
+              >
+                ✨ Caption তৈরি করুন
+              </button>
+
+              {post.facebookError && (
+                <p className="text-xs text-red-600">{post.facebookError}</p>
+              )}
+            </div>
+          </details>
+        </aside>
+      </div>
+
+      {message && (
+        <div
+          className={
+            "rounded-lg border px-4 py-3 text-sm " +
+            (message.startsWith("❌")
+              ? "border-red-200 bg-red-50 text-red-700"
+              : "border-green-200 bg-green-50 text-green-700")
+          }
+        >
+          {message}
         </div>
       )}
-
-      <div className="border rounded-xl p-4 bg-blue-50 space-y-4">
-        <div>
-          <p className="font-semibold">📘 Facebook Publishing</p>
-          <p className="text-xs text-gray-600 mt-1">
-            Article-এর Feature Image-ই Facebook Card-এর মূল ছবি। তাই স্টক/অরিজিনাল ছবি আপলোড
-            করলেই একই ছবি দুই জায়গায় ব্যবহার হবে। AI image চাইলে আলাদাভাবে তৈরি করা যাবে।
-          </p>
-        </div>
-
-        {post.featureImage ? (
-          <div className="border rounded-lg bg-white p-4 space-y-3">
-            <div>
-              <p className="font-semibold">📷 Article Feature Image</p>
-              <p className="text-xs text-green-700 mt-1">
-                এই ছবিই Article Cover এবং Facebook Card—দুই জায়গায় ব্যবহার হবে।
-              </p>
-            </div>
-            <img
-              src={post.featureImage}
-              alt="Article Feature Image"
-              className="w-full aspect-[4/5] object-cover rounded-lg"
-            />
-          </div>
-        ) : null}
-
-        <div className="border rounded-lg bg-white overflow-hidden">
-          <div className="px-3 py-2 text-xs font-medium text-gray-600 border-b flex items-center justify-between gap-2">
-            <span>🖼️ Facebook Photo Card</span>
-            {post.featureImage ? (
-              <button
-                type="button"
-                onClick={regenerateFacebookCard}
-                disabled={featureImageBusy}
-                className="border px-3 py-1.5 rounded-lg text-xs bg-white"
-              >
-                🔄 Card রিফ্রেশ করুন
-              </button>
-            ) : null}
-          </div>
-
-          {post.featureImage ? (
-            <img
-              src={
-                (post.facebookImageUrl || "/api/facebook/card/" + postId) +
-                (post.facebookImageUrl
-                  ? "?preview=" + cardPreviewVersion
-                  : "?preview=" + cardPreviewVersion)
-              }
-              alt="Facebook Photo Card"
-              className="w-full aspect-[4/5] object-cover"
-            />
-          ) : (
-            <div className="p-6 text-sm text-gray-500">
-              আগে Article-এর Feature Image আপলোড/সেট করুন। সেটিই Facebook Card-এর মূল ছবি হিসেবে ব্যবহৃত হবে।
-            </div>
-          )}
-        </div>
-
-        <textarea
-          value={post.facebookCaption || ""}
-          onChange={(e) =>
-            setPost({ ...post, facebookCaption: e.target.value })
-          }
-          className="w-full min-h-28 border p-3 rounded-lg bg-white"
-          placeholder="Facebook caption"
-        />
-
-        <div className="flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            onClick={async () => {
-              try {
-                const response = await axios.post(
-                  "/api/editor/posts/" + postId + "/facebook-caption"
-                );
-                setPost({ ...post, facebookCaption: response.data.caption });
-                setMessage("✅ Facebook caption তৈরি হয়েছে");
-              } catch (error) {
-                setMessage(
-                  "❌ " +
-                    (axios.isAxiosError(error)
-                      ? error.response?.data?.message ||
-                        "Facebook caption তৈরি করা যায়নি"
-                      : "Facebook caption তৈরি করা যায়নি")
-                );
-              }
-            }}
-            className="border bg-white px-3 py-2 rounded-lg text-sm"
-          >
-            ✨ Caption তৈরি করুন
-          </button>
-
-          <label className="inline-flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={Boolean(post.facebookAutoPost)}
-              onChange={(e) =>
-                setPost({ ...post, facebookAutoPost: e.target.checked })
-              }
-            />
-            Article Publish হলে Facebook-এ auto-post
-          </label>
-
-          <span className="text-xs text-gray-600">
-            Status: {post.facebookStatus || "NONE"}
-          </span>
-        </div>
-
-        <div className="flex flex-wrap gap-3">
-          <button
-            type="button"
-            onClick={publishToFacebook}
-            disabled={post.status !== "PUBLISHED" || post.facebookStatus === "PUBLISHED"}
-            className="bg-blue-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm font-medium"
-          >
-            {post.facebookStatus === "PUBLISHED"
-              ? "✅ Facebook-এ প্রকাশিত"
-              : "📘 Facebook-এ এখনই প্রকাশ করুন"}
-          </button>
-
-          {post.status !== "PUBLISHED" && (
-            <span className="text-xs text-orange-700 self-center">
-              Manual Facebook publish-এর আগে Article Publish করুন।
-            </span>
-          )}
-        </div>
-
-        {post.facebookError && (
-          <p className="text-sm text-red-600">{post.facebookError}</p>
-        )}
-      </div>
-
-      <select
-        value={post.authorId || ""}
-        onChange={(e) => setPost({ ...post, authorId: e.target.value })}
-        className="w-full border p-3"
-      >
-        <option value="">-- রিপোর্টার নির্বাচন করুন --</option>
-        {reporters.map((rep) => (
-          <option key={rep.id} value={rep.id}>
-            {rep.name}
-          </option>
-        ))}
-      </select>
-
-      <div className="border rounded-xl p-4 bg-purple-50 space-y-4">
-        <div>
-          <p className="font-semibold">🤖 AI দিয়ে ছবি তৈরি করুন</p>
-          <p className="text-xs text-gray-600 mt-1">
-            নিজের prompt দিতে পারেন। খালি রাখলে Article-এর শিরোনাম, বিষয় ও ক্যাটাগরি দেখে AI নিজে prompt তৈরি করবে।
-            তৈরি হওয়া ছবিটি আগে preview হবে; আপনার অনুমতি ছাড়া Article Cover বদলাবে না।
-          </p>
-        </div>
-
-        <textarea
-          value={aiImagePrompt}
-          onChange={(e) => setAiImagePrompt(e.target.value)}
-          className="w-full min-h-24 border p-3 rounded-lg bg-white"
-          placeholder="যেমন: আন্তর্জাতিক টেনিস ম্যাচে একজন প্রাপ্তবয়স্ক খেলোয়াড়ের তীব্র ম্যাচের দৃশ্য, 4:5 editorial sports photography, no text..."
-          disabled={aiImageBusy}
-        />
-
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={generateAIImage}
-            disabled={aiImageBusy}
-            className="bg-purple-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm font-medium"
-          >
-            {aiImageBusy ? "⏳ AI ছবি তৈরি হচ্ছে..." : "✨ AI ছবি তৈরি করুন"}
-          </button>
-        </div>
-
-        {aiGeneratedImageUrl ? (
-          <div className="border rounded-lg overflow-hidden bg-white">
-            <div className="px-3 py-2 border-b text-sm font-medium">
-              AI Image Preview
-            </div>
-            <img
-              src={aiGeneratedImageUrl}
-              alt="AI generated sports image"
-              className="w-full max-h-[520px] object-contain bg-gray-100"
-            />
-            {post.facebookImagePrompt ? (
-              <p className="px-3 pt-3 text-xs text-gray-500">
-                Prompt: {post.facebookImagePrompt}
-              </p>
-            ) : null}
-            <div className="p-3 flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={useAIImageAsFeature}
-                disabled={aiImageBusy}
-                className="bg-green-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm font-medium"
-              >
-                {aiImageBusy
-                  ? "⏳ ছবি ব্যবহার হচ্ছে..."
-                  : "✅ এই AI ছবি Article Cover করুন"}
-              </button>
-            </div>
-          </div>
-        ) : null}
-      </div>
-
-      <div className="border rounded-xl p-4 bg-gray-50">
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
-          <div>
-            <p className="font-semibold">📷 Feature Image</p>
-            <p className="text-xs text-gray-500 mt-1">
-              অরিজিনাল/স্টক ছবি বাছাই করুন। ছবি আগে preview হবে; “এই ছবি ব্যবহার করুন” চাপলে
-              সেটি Article Cover এবং Facebook Card—দুই জায়গায় save হবে।
-            </p>
-          </div>
-          <label className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm cursor-pointer">
-            🖼️ ছবি বাছাই করুন
-            <input
-              type="file"
-              accept="image/*"
-              className="hidden"
-              disabled={featureImageBusy}
-              onChange={handleFeatureImageChange}
-            />
-          </label>
-        </div>
-
-        {featureImagePreview ? (
-          <div className="space-y-3">
-            <div className="border rounded-lg overflow-hidden bg-white">
-              <img
-                src={featureImagePreview}
-                alt="Selected feature image preview"
-                className="w-full max-h-[520px] object-contain"
-              />
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={useSelectedFeatureImage}
-                disabled={featureImageBusy}
-                className="bg-green-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm font-medium"
-              >
-                {featureImageBusy
-                  ? "⏳ ছবি আপলোড ও save হচ্ছে..."
-                  : "✅ এই ছবি ব্যবহার করুন"}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  if (featureImagePreview) {
-                    URL.revokeObjectURL(featureImagePreview);
-                  }
-                  setFeatureImageFile(null);
-                  setFeatureImagePreview(null);
-                  setMessage("");
-                }}
-                disabled={featureImageBusy}
-                className="border px-4 py-2 rounded-lg text-sm bg-white"
-              >
-                ✕ বাতিল
-              </button>
-            </div>
-            <p className="text-xs text-orange-700">
-              এই মুহূর্তে এটি শুধু preview। “এই ছবি ব্যবহার করুন” না চাপা পর্যন্ত পুরোনো ছবি বদলাবে না।
-            </p>
-          </div>
-        ) : post.featureImage ? (
-          <div className="border rounded-lg overflow-hidden bg-white space-y-2">
-            <img
-              src={post.featureImage}
-              alt="Current Feature Image"
-              className="w-full max-h-[520px] object-contain"
-            />
-            <p className="px-3 pb-3 text-xs text-green-700">
-              ✅ বর্তমানে এই ছবিই Article Cover এবং Facebook Card-এর source।
-            </p>
-          </div>
-        ) : (
-          <p className="text-sm text-gray-500">
-            এখনো Feature Image দেওয়া হয়নি।
-          </p>
-        )}
-      </div>
-
-      <div className="border rounded-xl p-4 bg-gray-50">
-        <div className="flex justify-between items-center mb-2">
-          <div>
-            <p className="font-semibold">🖼️ পোস্টের ভেতরের একাধিক ছবি</p>
-            <p className="text-xs text-gray-500">
-              সর্বোচ্চ ২০টি ছবি যোগ করতে পারবেন। এগুলো article-এর ভেতরের
-              &quot;আরও ছবি&quot; অংশে দেখাবে।
-            </p>
-          </div>
-          <span className="text-xs text-gray-500">
-            {galleryImages.length}/20
-          </span>
-        </div>
-
-        {galleryImages.length > 0 && (
-          <div className="grid sm:grid-cols-3 gap-3 mb-4">
-            {galleryImages.map((src, index) => (
-              <div key={src + index} className="relative border rounded-lg p-1 bg-white">
-                <Image
-                  src={src}
-                  alt={"Gallery " + (index + 1)}
-                  width={300}
-                  height={200}
-                  className="w-full aspect-video object-cover rounded"
-                />
-                <button
-                  type="button"
-                  onClick={() => removeGalleryImage(index)}
-                  className="absolute top-2 right-2 bg-black/70 text-white rounded px-2 py-1 text-xs"
-                >
-                  ✕ মুছুন
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <input
-          type="file"
-          accept="image/*"
-          multiple
-          onChange={(e: ChangeEvent<HTMLInputElement>) =>
-            setGalleryFiles(Array.from(e.target.files || []).slice(0, 20))
-          }
-        />
-
-        {galleryFiles.length > 0 && (
-          <p className="text-xs text-blue-700 mt-2">
-            নতুন {galleryFiles.length}টি ছবি save করার সময় upload হবে।
-          </p>
-        )}
-      </div>
-
-      <div>
-        <label className="font-medium block mb-1">📂 ক্যাটাগরি:</label>
-        {categories.map((cat) => (
-          <label key={cat.id} className="block text-sm">
-            <input
-              type="checkbox"
-              value={cat.id}
-              checked={selectedCategories.includes(cat.id)}
-              onChange={(e) => {
-                const id = parseInt(e.target.value);
-                setSelectedCategories((prev) =>
-                  prev.includes(id)
-                    ? prev.filter((x) => x !== id)
-                    : [...prev, id]
-                );
-              }}
-              className="mr-2"
-            />
-            {cat.name}
-          </label>
-        ))}
-      </div>
-
-      <div>
-        <label className="font-medium block mb-1">🧩 সাবক্যাটাগরি:</label>
-        {subcategories.map((sub) => (
-          <label key={sub.id} className="block text-sm">
-            <input
-              type="checkbox"
-              value={sub.id}
-              checked={selectedSubcategories.includes(sub.id)}
-              onChange={(e) => {
-                const id = parseInt(e.target.value);
-                setSelectedSubcategories((prev) =>
-                  prev.includes(id)
-                    ? prev.filter((x) => x !== id)
-                    : [...prev, id]
-                );
-              }}
-              className="mr-2"
-            />
-            {sub.name}
-          </label>
-        ))}
-      </div>
-
-      <select
-        value={post.placement || "NONE"}
-        onChange={(e) => setPost({ ...post, placement: e.target.value })}
-        className="w-full border p-3"
-      >
-        <option value="NONE">🟤 সাধারণ</option>
-        <option value="LEAD">🔴 লিড</option>
-        <option value="SECOND_LEAD">🟠 সেকেন্ড লিড</option>
-        <option value="EDITORS_PICK">⭐ সম্পাদকের পছন্দ</option>
-        <option value="TRENDING">🔥 ট্রেন্ডিং</option>
-      </select>
-
-      <label className="inline-flex items-center gap-2">
-        <input
-          type="checkbox"
-          checked={Boolean(post.isBreaking)}
-          onChange={(e) => setPost({ ...post, isBreaking: e.target.checked })}
-        />
-        🛑 ব্রেকিং নিউজ হিসেবে চিহ্নিত করুন
-      </label>
-
-      <select
-        value={post.status}
-        onChange={(e) => setPost({ ...post, status: e.target.value })}
-        className="w-full border p-3"
-      >
-        <option value="DRAFT">Draft</option>
-        <option value="PENDING">Pending</option>
-        <option value="PUBLISHED">Published</option>
-      </select>
-
-      <button
-        type="submit"
-        disabled={saving}
-        className="bg-blue-600 disabled:opacity-50 text-white px-5 py-2.5 rounded-lg"
-      >
-        {saving ? "💾 সংরক্ষণ হচ্ছে..." : "💾 আপডেট করুন"}
-      </button>
-
-      {message && <p className="text-green-600">{message}</p>}
     </form>
   );
 }
