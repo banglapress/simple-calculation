@@ -50,6 +50,7 @@ export async function publishPostToFacebook(
     });
 
   const cardUrl =
+    post.facebookImageUrl?.trim() ||
     "https://www.khelatv.com/api/facebook/card/" + post.id;
 
   await prisma.post.update({
