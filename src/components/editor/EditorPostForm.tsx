@@ -410,7 +410,9 @@ export default function EditorPostForm({ postId }: { postId: string }) {
   };
 
   const useAIImageAsFeature = async () => {
-    if (!aiGeneratedImageUrl) return;
+    if (!post || !aiGeneratedImageUrl) return;
+
+    const currentPost = post;
 
     setAiImageBusy(true);
     setMessage("⏳ AI ছবিটি Article Cover এবং Facebook Card-এর জন্য প্রস্তুত করা হচ্ছে...");
@@ -429,29 +431,29 @@ export default function EditorPostForm({ postId }: { postId: string }) {
       const cardUrl = await uploadFile(cardFile);
 
       const saveResponse = await axios.put("/api/editor/posts/" + postId, {
-        title: post.title,
-        content: post.content,
-        tags: post.tags,
-        isBreaking: post.isBreaking,
-        authorId: post.authorId,
-        status: post.status,
+        title: currentPost.title,
+        content: currentPost.content,
+        tags: currentPost.tags,
+        isBreaking: currentPost.isBreaking,
+        authorId: currentPost.authorId,
+        status: currentPost.status,
         featureImage: imageUrl,
         facebookImageUrl: cardUrl,
-        galleryImages: parseGallery(post.galleryImages),
-        placement: post.placement,
+        galleryImages: parseGallery(currentPost.galleryImages),
+        placement: currentPost.placement,
         categoryIds: selectedCategories,
         subcategoryIds: selectedSubcategories,
-        facebookCaption: post.facebookCaption || "",
-        facebookAutoPost: Boolean(post.facebookAutoPost),
+        facebookCaption: currentPost.facebookCaption || "",
+        facebookAutoPost: Boolean(currentPost.facebookAutoPost),
       });
 
       const saved = saveResponse.data?.post;
 
       setPost({
-        ...post,
+        ...currentPost,
         featureImage: String(saved?.featureImage || imageUrl),
         facebookImageUrl: String(saved?.facebookImageUrl || cardUrl),
-        facebookImagePrompt: post.facebookImagePrompt,
+        facebookImagePrompt: currentPost.facebookImagePrompt,
         facebookStatus: "READY",
         facebookError: null,
       });
@@ -498,6 +500,8 @@ export default function EditorPostForm({ postId }: { postId: string }) {
   const useSelectedFeatureImage = async () => {
     if (!featureImageFile || !post) return;
 
+    const currentPost = post;
+
     setFeatureImageBusy(true);
     setMessage("");
 
@@ -509,27 +513,27 @@ export default function EditorPostForm({ postId }: { postId: string }) {
       const cardUrl = await uploadFile(cardFile);
 
       const response = await axios.put("/api/editor/posts/" + postId, {
-        title: post.title,
-        content: post.content,
-        tags: post.tags,
-        isBreaking: post.isBreaking,
-        authorId: post.authorId,
-        status: post.status,
+        title: currentPost.title,
+        content: currentPost.content,
+        tags: currentPost.tags,
+        isBreaking: currentPost.isBreaking,
+        authorId: currentPost.authorId,
+        status: currentPost.status,
         featureImage: url,
         facebookImageUrl: cardUrl,
-        galleryImages: parseGallery(post.galleryImages),
-        placement: post.placement,
+        galleryImages: parseGallery(currentPost.galleryImages),
+        placement: currentPost.placement,
         categoryIds: selectedCategories,
         subcategoryIds: selectedSubcategories,
-        facebookCaption: post.facebookCaption || "",
-        facebookAutoPost: Boolean(post.facebookAutoPost),
+        facebookCaption: currentPost.facebookCaption || "",
+        facebookAutoPost: Boolean(currentPost.facebookAutoPost),
       });
 
       const saved = response.data?.post;
       const savedFeatureImage = String(saved?.featureImage || url).trim();
 
       setPost({
-        ...post,
+        ...currentPost,
         featureImage: savedFeatureImage,
         facebookImageUrl: saved?.facebookImageUrl || cardUrl,
         facebookStatus: saved?.facebookStatus || "READY",
@@ -565,32 +569,34 @@ export default function EditorPostForm({ postId }: { postId: string }) {
   const regenerateFacebookCard = async () => {
     if (!post?.featureImage) return;
 
+    const currentPost = post;
+
     setFeatureImageBusy(true);
     setMessage("⏳ বর্তমান Feature Image দিয়ে Unicode বাংলা Card তৈরি হচ্ছে...");
 
     try {
-      const cardFile = await makeFacebookCard(post.featureImage);
+      const cardFile = await makeFacebookCard(currentPost.featureImage);
       const cardUrl = await uploadFile(cardFile);
 
       await axios.put("/api/editor/posts/" + postId, {
-        title: post.title,
-        content: post.content,
-        tags: post.tags,
-        isBreaking: post.isBreaking,
-        authorId: post.authorId,
-        status: post.status,
-        featureImage: post.featureImage,
+        title: currentPost.title,
+        content: currentPost.content,
+        tags: currentPost.tags,
+        isBreaking: currentPost.isBreaking,
+        authorId: currentPost.authorId,
+        status: currentPost.status,
+        featureImage: currentPost.featureImage,
         facebookImageUrl: cardUrl,
-        galleryImages: parseGallery(post.galleryImages),
-        placement: post.placement,
+        galleryImages: parseGallery(currentPost.galleryImages),
+        placement: currentPost.placement,
         categoryIds: selectedCategories,
         subcategoryIds: selectedSubcategories,
-        facebookCaption: post.facebookCaption || "",
-        facebookAutoPost: Boolean(post.facebookAutoPost),
+        facebookCaption: currentPost.facebookCaption || "",
+        facebookAutoPost: Boolean(currentPost.facebookAutoPost),
       });
 
       setPost({
-        ...post,
+        ...currentPost,
         facebookImageUrl: cardUrl,
         facebookStatus: "READY",
         facebookError: null,
