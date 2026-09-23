@@ -113,11 +113,18 @@ export async function POST(req: NextRequest) {
 
   const user = await prisma.user.findUnique({
     where: { email: session.user.email },
-    select: { id: true },
+    select: { id: true, role: true },
   });
 
   if (!user) {
     return NextResponse.json({ message: "User not found" }, { status: 404 });
+  }
+
+  // A reporter can save a DRAFT, or send it for editorial review.
+  // A reporter can never create a PUBLISHED post directly.
+  let normalizedReporterStatus = normalizedStatus;
+  if (user.role === "REPORTER" && normalizedStatus !== "DRAFT") {
+    normalizedReporterStatus = "PENDING";
   }
 
   try {
@@ -127,7 +134,7 @@ export async function POST(req: NextRequest) {
         content: content ?? "",
         excerpt: makeExcerpt(content ?? ""),
         featureImage: featureImage || "",
-        status: normalizedStatus,
+        status: normalizedReporterStatus,
         placement: normalizedPlacement,
         isBreaking: normalizedBreaking,
         tags,
