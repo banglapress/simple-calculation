@@ -34,7 +34,7 @@ async function getBanglaFont() {
     if (!match?.[1]) return null;
 
     const fontResponse = await fetch(match[1].replace(/['"]/g, ""), {
-      cache: "force-cache",
+      cache: "no-store",
     });
 
     if (!fontResponse.ok) return null;
@@ -330,8 +330,8 @@ export async function GET(
           ]
         : undefined,
       headers: {
-        "Cache-Control":
-          "public, s-maxage=3600, stale-while-revalidate=86400",
+        "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+        Pragma: "no-cache",
       },
     }
   );
