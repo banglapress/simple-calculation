@@ -8,8 +8,13 @@ export default function EditPostPage({
   params: { id: string };
 }) {
   return (
-    <div className="max-w-4xl mx-auto py-6">
-      <h1 className="text-xl font-bold mb-4">✏️ পোস্ট এডিট করুন</h1>
+    <div className="w-full max-w-[1600px] mx-auto px-4 md:px-6 py-6">
+      <div className="mb-5">
+        <h1 className="text-2xl font-bold tracking-tight">✏️ পোস্ট এডিট করুন</h1>
+        <p className="text-sm text-slate-500 mt-1">
+          মূল লেখা মাঝখানে, প্রকাশনা ও অন্যান্য সেটিংস ডান পাশে।
+        </p>
+      </div>
       <EditorPostForm postId={params.id} />
     </div>
   );
