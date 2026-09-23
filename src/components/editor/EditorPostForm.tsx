@@ -128,6 +128,241 @@ export default function EditorPostForm({ postId }: { postId: string }) {
     return post?.featureImage || "";
   };
 
+  const loadFacebookCardFont = async () => {
+    const id = "khelatv-bengali-card-font";
+    let link = document.getElementById(id) as HTMLLinkElement | null;
+
+    if (!link) {
+      link = document.createElement("link");
+      link.id = id;
+      link.rel = "stylesheet";
+      link.href =
+        "https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;700&display=swap";
+      document.head.appendChild(link);
+
+      await new Promise<void>((resolve) => {
+        const finish = () => resolve();
+        link?.addEventListener("load", finish, { once: true });
+        link?.addEventListener("error", finish, { once: true });
+        window.setTimeout(finish, 5000);
+      });
+    }
+
+    await document.fonts.load('700 60px "Noto Sans Bengali"');
+    await document.fonts.load('400 28px "Noto Sans Bengali"');
+  };
+
+  const loadCardSourceImage = async (source: string | File) => {
+    if (source instanceof File) {
+      const blobUrl = URL.createObjectURL(source);
+      try {
+        const image = new window.Image();
+        image.src = blobUrl;
+        await new Promise<void>((resolve, reject) => {
+          image.onload = () => resolve();
+          image.onerror = () => reject(new Error("ছবি লোড করা যায়নি"));
+        });
+        return { image, revoke: () => URL.revokeObjectURL(blobUrl) };
+      } catch (error) {
+        URL.revokeObjectURL(blobUrl);
+        throw error;
+      }
+    }
+
+    const image = new window.Image();
+    image.crossOrigin = "anonymous";
+    image.src = source + (source.includes("?") ? "&" : "?") + "card=" + Date.now();
+
+    await new Promise<void>((resolve, reject) => {
+      image.onload = () => resolve();
+      image.onerror = () =>
+        reject(new Error("Feature Image browser-এ লোড করা যায়নি"));
+    });
+
+    return { image, revoke: () => undefined };
+  };
+
+  const wrapCanvasText = (
+    ctx: CanvasRenderingContext2D,
+    text: string,
+    maxWidth: number,
+    maxLines: number
+  ) => {
+    const words = text.replace(/\s+/g, " ").trim().split(" ").filter(Boolean);
+    const lines: string[] = [];
+    let current = "";
+
+    for (const word of words) {
+      const candidate = current ? current + " " + word : word;
+      if (!current || ctx.measureText(candidate).width <= maxWidth) {
+        current = candidate;
+      } else {
+        lines.push(current);
+        current = word;
+        if (lines.length === maxLines - 1) break;
+      }
+    }
+
+    if (current && lines.length < maxLines) {
+      lines.push(current);
+    }
+
+    return lines;
+  };
+
+  const makeFacebookCard = async (source: string | File) => {
+    if (!post) throw new Error("পোস্ট পাওয়া যায়নি");
+
+    await loadFacebookCardFont();
+
+    const { image, revoke } = await loadCardSourceImage(source);
+
+    try {
+      const canvas = document.createElement("canvas");
+      canvas.width = 1080;
+      canvas.height = 1350;
+
+      const ctx = canvas.getContext("2d");
+      if (!ctx) throw new Error("Canvas তৈরি করা যায়নি");
+
+      const imageHeight = 790;
+      const imageScale = Math.max(
+        1080 / image.naturalWidth,
+        imageHeight / image.naturalHeight
+      );
+      const drawWidth = image.naturalWidth * imageScale;
+      const drawHeight = image.naturalHeight * imageScale;
+
+      ctx.fillStyle = "#0f172a";
+      ctx.fillRect(0, 0, 1080, 1350);
+
+      ctx.drawImage(
+        image,
+        (1080 - drawWidth) / 2,
+        96 + (imageHeight - drawHeight) / 2,
+        drawWidth,
+        drawHeight
+      );
+
+      const imageGradient = ctx.createLinearGradient(0, 96, 0, 96 + imageHeight);
+      imageGradient.addColorStop(0, "rgba(0,0,0,0.02)");
+      imageGradient.addColorStop(1, "rgba(0,0,0,0.64)");
+      ctx.fillStyle = imageGradient;
+      ctx.fillRect(0, 96, 1080, imageHeight);
+
+      ctx.fillStyle = "#111827";
+      ctx.fillRect(0, 0, 1080, 96);
+
+      ctx.fillStyle = "#ffffff";
+      ctx.font = '700 30px "Noto Sans Bengali"';
+      ctx.textBaseline = "middle";
+      ctx.fillText("KhelaTV", 48, 48);
+
+      ctx.fillStyle = "rgba(255,255,255,0.85)";
+      ctx.font = '700 22px Arial';
+      ctx.fillText("SPORTS NEWS", 1080 - 48 - ctx.measureText("SPORTS NEWS").width, 48);
+
+      const categoryName =
+        post.categories?.[0]?.name?.trim() || "অন্যান্য খেলা";
+
+      ctx.fillStyle = "#ffffff";
+      ctx.font = '700 50px "Noto Sans Bengali"';
+      ctx.textBaseline = "top";
+      ctx.shadowColor = "rgba(0,0,0,0.65)";
+      ctx.shadowBlur = 12;
+      ctx.shadowOffsetY = 3;
+      ctx.fillText("খেলা টিভি", 42, 96 + imageHeight - 104);
+
+      ctx.shadowBlur = 0;
+      ctx.shadowOffsetY = 0;
+      ctx.font = '700 24px Arial';
+      ctx.fillText("khelatv.com", 42, 96 + imageHeight - 48);
+
+      ctx.fillStyle = "#f5f0e8";
+      ctx.fillRect(0, 886, 1080, 446);
+
+      ctx.fillStyle = "#b42318";
+      ctx.font = '700 24px "Noto Sans Bengali"';
+      ctx.fillText(categoryName, 54, 924);
+
+      const title = String(post.title || "").trim();
+      ctx.fillStyle = "#17130f";
+      ctx.font =
+        title.length > 90
+          ? '700 48px "Noto Sans Bengali"'
+          : title.length > 60
+            ? '700 54px "Noto Sans Bengali"'
+            : '700 60px "Noto Sans Bengali"';
+
+      const titleLines = wrapCanvasText(ctx, title, 970, 2);
+      const titleLineHeight = title.length > 90 ? 56 : title.length > 60 ? 63 : 70;
+      titleLines.forEach((line, index) => {
+        ctx.fillText(line, 54, 968 + index * titleLineHeight);
+      });
+
+      const plainText = String(post.content || "")
+        .replace(/<[^>]+>/g, " ")
+        .replace(/&nbsp;/g, " ")
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, 150);
+
+      if (plainText) {
+        ctx.fillStyle = "#5b5147";
+        ctx.font = '400 28px "Noto Sans Bengali"';
+        const excerptLines = wrapCanvasText(ctx, plainText, 940, 3);
+        const excerptTop = 968 + titleLines.length * titleLineHeight + 18;
+        excerptLines.forEach((line, index) => {
+          ctx.fillText(line, 54, excerptTop + index * 38);
+        });
+      }
+
+      ctx.fillStyle = "#7c7064";
+      ctx.font = '400 20px Arial';
+      ctx.fillText("www.khelatv.com", 54, 1292);
+
+      ctx.fillStyle = "#b42318";
+      ctx.fillRect(0, 1332, 1080, 18);
+
+      const blob = await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob((value) => {
+          if (!value) {
+            reject(new Error("Facebook Card PNG তৈরি করা যায়নি"));
+            return;
+          }
+          resolve(value);
+        }, "image/png");
+      });
+
+      return new File([blob], "khelatv-facebook-card.png", {
+        type: "image/png",
+      });
+    } finally {
+      revoke();
+    }
+  };
+
+  const uploadFile = async (file: File) => {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const res = await fetch("/api/upload", {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => null);
+      throw new Error(data?.error || "Image upload failed");
+    }
+
+    const data = await res.json();
+    const url = String(data.url || "").trim();
+
+    if (!url) throw new Error("Cloudinary image URL পাওয়া যায়নি");
+    return url;
+  };
+
   const handleFeatureImageChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
 
@@ -154,25 +389,11 @@ export default function EditorPostForm({ postId }: { postId: string }) {
     setMessage("");
 
     try {
-      const formData = new FormData();
-      formData.append("file", featureImageFile);
+      const url = await uploadFile(featureImageFile);
 
-      const res = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => null);
-        throw new Error(data?.error || "Feature Image upload failed");
-      }
-
-      const data = await res.json();
-      const url = String(data.url || "").trim();
-
-      if (!url) {
-        throw new Error("Cloudinary image URL পাওয়া যায়নি");
-      }
+      setMessage("⏳ বাংলা Unicode Facebook Card তৈরি হচ্ছে...");
+      const cardFile = await makeFacebookCard(featureImageFile);
+      const cardUrl = await uploadFile(cardFile);
 
       const response = await axios.put("/api/editor/posts/" + postId, {
         title: post.title,
@@ -182,6 +403,7 @@ export default function EditorPostForm({ postId }: { postId: string }) {
         authorId: post.authorId,
         status: post.status,
         featureImage: url,
+        facebookImageUrl: cardUrl,
         galleryImages: parseGallery(post.galleryImages),
         placement: post.placement,
         categoryIds: selectedCategories,
@@ -196,7 +418,7 @@ export default function EditorPostForm({ postId }: { postId: string }) {
       setPost({
         ...post,
         featureImage: savedFeatureImage,
-        facebookImageUrl: saved?.facebookImageUrl || savedFeatureImage,
+        facebookImageUrl: saved?.facebookImageUrl || cardUrl,
         facebookStatus: saved?.facebookStatus || "READY",
         facebookError: null,
       });
@@ -209,7 +431,7 @@ export default function EditorPostForm({ postId }: { postId: string }) {
       setCardPreviewVersion(Date.now());
 
       setMessage(
-        "✅ ছবি ব্যবহার করা হয়েছে। এটিই এখন Article Cover এবং Facebook Card-এর ছবি।"
+        "✅ ছবি ব্যবহার করা হয়েছে এবং Unicode বাংলা Facebook Card তৈরি হয়েছে।"
       );
     } catch (error) {
       setMessage(
@@ -467,7 +689,12 @@ export default function EditorPostForm({ postId }: { postId: string }) {
 
           {post.featureImage ? (
             <img
-              src={"/api/facebook/card/" + postId + "?preview=" + cardPreviewVersion}
+              src={
+                (post.facebookImageUrl || "/api/facebook/card/" + postId) +
+                (post.facebookImageUrl
+                  ? "?preview=" + cardPreviewVersion
+                  : "?preview=" + cardPreviewVersion)
+              }
               alt="Facebook Photo Card"
               className="w-full aspect-[4/5] object-cover"
             />
