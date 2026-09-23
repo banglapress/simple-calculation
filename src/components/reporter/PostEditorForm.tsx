@@ -187,13 +187,22 @@ export default function PostEditorForm({ postId }: { postId?: string }) {
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    const formData = new FormData(e.currentTarget);
-    const submissionStatus = formData.get("submissionStatus");
+    const submitter = (
+      e.nativeEvent as SubmitEvent
+    ).submitter as HTMLButtonElement | null;
 
-    if (
-      submissionStatus !== "DRAFT" &&
-      submissionStatus !== "PENDING"
-    ) {
+    const rawStatus =
+      submitter?.name === "submissionStatus"
+        ? submitter.value
+        : null;
+
+    const submissionStatus =
+      rawStatus === "DRAFT" || rawStatus === "PENDING"
+        ? rawStatus
+        : null;
+
+    if (!submissionStatus) {
+      setSubmittingStatus(null);
       setMessage("❌ পোস্টের status নির্বাচন করা যায়নি।");
       return;
     }
@@ -401,7 +410,6 @@ export default function PostEditorForm({ postId }: { postId?: string }) {
           type="submit"
           name="submissionStatus"
           value="DRAFT"
-          onClick={() => setSubmittingStatus("DRAFT")}
           disabled={submittingStatus !== null}
           className="bg-gray-700 disabled:opacity-50 text-white px-5 py-2.5 rounded-lg"
         >
@@ -413,7 +421,6 @@ export default function PostEditorForm({ postId }: { postId?: string }) {
           type="submit"
           name="submissionStatus"
           value="PENDING"
-          onClick={() => setSubmittingStatus("PENDING")}
           disabled={submittingStatus !== null}
           className="bg-blue-600 disabled:opacity-50 text-white px-5 py-2.5 rounded-lg"
         >
