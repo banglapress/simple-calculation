@@ -128,9 +128,8 @@ export async function GET(
     .trim()
     .slice(0, 150);
   const categoryName = post.categories[0]?.name || "Sports";
-  const sourceImage = absoluteImageUrl(
-    post.facebookImageUrl || post.featureImage
-  );
+  // The article feature image is the single source of truth for the Facebook card.
+  const sourceImage = absoluteImageUrl(post.featureImage);
   const imageUrl = await loadImageDataUrl(sourceImage);
   const font = await getBanglaFont();
 
@@ -206,6 +205,43 @@ export async function GET(
               "linear-gradient(180deg,rgba(0,0,0,0.02) 45%,rgba(0,0,0,0.62) 100%)",
           }}
         />
+
+        <div
+          style={{
+            position: "absolute",
+            left: 42,
+            bottom: 34,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "flex-start",
+            color: "white",
+            textShadow: "0 3px 12px rgba(0,0,0,0.65)",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              fontSize: 50,
+              lineHeight: 1.05,
+              fontWeight: 700,
+            }}
+          >
+            খেলা টিভি
+          </div>
+          <div
+            style={{
+              display: "flex",
+              marginTop: 6,
+              fontFamily: "Arial",
+              fontSize: 24,
+              lineHeight: 1,
+              fontWeight: 700,
+              letterSpacing: 1,
+            }}
+          >
+            khelatv.com
+          </div>
+        </div>
       </div>
 
       <div
