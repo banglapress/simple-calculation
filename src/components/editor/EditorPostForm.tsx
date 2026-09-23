@@ -87,6 +87,8 @@ export default function EditorPostForm({ postId }: { postId: string }) {
     []
   );
   const [featureImageBusy, setFeatureImageBusy] = useState(false);
+  const [featureImageFile, setFeatureImageFile] = useState<File | null>(null);
+  const [featureImagePreview, setFeatureImagePreview] = useState<string | null>(null);
   const [galleryImages, setGalleryImages] = useState<string[]>([]);
   const [galleryFiles, setGalleryFiles] = useState<File[]>([]);
   const [message, setMessage] = useState("");
@@ -126,18 +128,34 @@ export default function EditorPostForm({ postId }: { postId: string }) {
     return post?.featureImage || "";
   };
 
-  const handleFeatureImageChange = async (
-    e: ChangeEvent<HTMLInputElement>
-  ) => {
+  const handleFeatureImageChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !post) return;
+
+    if (!file) {
+      setFeatureImageFile(null);
+      setFeatureImagePreview(null);
+      e.target.value = "";
+      return;
+    }
+
+    const previewUrl = URL.createObjectURL(file);
+    setFeatureImageFile(file);
+    setFeatureImagePreview(previewUrl);
+    setMessage(
+      "ছবি বাছাই করা হয়েছে। এখন “এই ছবি ব্যবহার করুন” চাপুন।"
+    );
+    e.target.value = "";
+  };
+
+  const useSelectedFeatureImage = async () => {
+    if (!featureImageFile || !post) return;
 
     setFeatureImageBusy(true);
     setMessage("");
 
     try {
       const formData = new FormData();
-      formData.append("file", file);
+      formData.append("file", featureImageFile);
 
       const res = await fetch("/api/upload", {
         method: "POST",
@@ -145,7 +163,8 @@ export default function EditorPostForm({ postId }: { postId: string }) {
       });
 
       if (!res.ok) {
-        throw new Error("Feature image upload failed");
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error || "Feature Image upload failed");
       }
 
       const data = await res.json();
@@ -172,18 +191,25 @@ export default function EditorPostForm({ postId }: { postId: string }) {
       });
 
       const saved = response.data?.post;
+      const savedFeatureImage = String(saved?.featureImage || url).trim();
 
       setPost({
         ...post,
-        featureImage: saved?.featureImage || url,
-        facebookImageUrl: saved?.facebookImageUrl || url,
+        featureImage: savedFeatureImage,
+        facebookImageUrl: saved?.facebookImageUrl || savedFeatureImage,
         facebookStatus: saved?.facebookStatus || "READY",
         facebookError: null,
       });
 
+      setFeatureImageFile(null);
+      if (featureImagePreview) {
+        URL.revokeObjectURL(featureImagePreview);
+      }
+      setFeatureImagePreview(null);
       setCardPreviewVersion(Date.now());
+
       setMessage(
-        "✅ ছবি আপলোড হয়েছে। এই ছবিই Article Cover এবং Facebook Card—দুই জায়গায় ব্যবহার হচ্ছে।"
+        "✅ ছবি ব্যবহার করা হয়েছে। এটিই এখন Article Cover এবং Facebook Card-এর ছবি।"
       );
     } catch (error) {
       setMessage(
@@ -191,14 +217,13 @@ export default function EditorPostForm({ postId }: { postId: string }) {
           (axios.isAxiosError(error)
             ? error.response?.data?.message ||
               error.response?.data?.error ||
-              "Feature Image upload করা যায়নি"
+              "ছবিটি ব্যবহার করা যায়নি"
             : error instanceof Error
               ? error.message
-              : "Feature Image upload করা যায়নি")
+              : "ছবিটি ব্যবহার করা যায়নি")
       );
     } finally {
       setFeatureImageBusy(false);
-      e.target.value = "";
     }
   };
 
@@ -545,11 +570,12 @@ export default function EditorPostForm({ postId }: { postId: string }) {
           <div>
             <p className="font-semibold">📷 Feature Image</p>
             <p className="text-xs text-gray-500 mt-1">
-              অরিজিনাল/স্টক ছবি আপলোড করুন। আপলোড হওয়া ছবিই Article Cover ও Facebook Card—দুই জায়গায় যাবে।
+              অরিজিনাল/স্টক ছবি বাছাই করুন। ছবি আগে preview হবে; “এই ছবি ব্যবহার করুন” চাপলে
+              সেটি Article Cover এবং Facebook Card—দুই জায়গায় save হবে।
             </p>
           </div>
           <label className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm cursor-pointer">
-            {featureImageBusy ? "⏳ আপলোড হচ্ছে..." : "🖼️ ছবি পরিবর্তন করুন"}
+            🖼️ ছবি বাছাই করুন
             <input
               type="file"
               accept="image/*"
@@ -560,13 +586,56 @@ export default function EditorPostForm({ postId }: { postId: string }) {
           </label>
         </div>
 
-        {post.featureImage ? (
-          <div className="border rounded-lg overflow-hidden bg-white">
+        {featureImagePreview ? (
+          <div className="space-y-3">
+            <div className="border rounded-lg overflow-hidden bg-white">
+              <img
+                src={featureImagePreview}
+                alt="Selected feature image preview"
+                className="w-full max-h-[520px] object-contain"
+              />
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={useSelectedFeatureImage}
+                disabled={featureImageBusy}
+                className="bg-green-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm font-medium"
+              >
+                {featureImageBusy
+                  ? "⏳ ছবি আপলোড ও save হচ্ছে..."
+                  : "✅ এই ছবি ব্যবহার করুন"}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (featureImagePreview) {
+                    URL.revokeObjectURL(featureImagePreview);
+                  }
+                  setFeatureImageFile(null);
+                  setFeatureImagePreview(null);
+                  setMessage("");
+                }}
+                disabled={featureImageBusy}
+                className="border px-4 py-2 rounded-lg text-sm bg-white"
+              >
+                ✕ বাতিল
+              </button>
+            </div>
+            <p className="text-xs text-orange-700">
+              এই মুহূর্তে এটি শুধু preview। “এই ছবি ব্যবহার করুন” না চাপা পর্যন্ত পুরোনো ছবি বদলাবে না।
+            </p>
+          </div>
+        ) : post.featureImage ? (
+          <div className="border rounded-lg overflow-hidden bg-white space-y-2">
             <img
               src={post.featureImage}
-              alt="Feature Image"
+              alt="Current Feature Image"
               className="w-full max-h-[520px] object-contain"
             />
+            <p className="px-3 pb-3 text-xs text-green-700">
+              ✅ বর্তমানে এই ছবিই Article Cover এবং Facebook Card-এর source।
+            </p>
           </div>
         ) : (
           <p className="text-sm text-gray-500">
