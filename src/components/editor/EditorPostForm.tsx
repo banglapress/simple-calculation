@@ -127,10 +127,6 @@ export default function EditorPostForm({ postId }: { postId: string }) {
     });
   }, [postId]);
 
-  const handleImageUpload = async () => {
-    return post?.featureImage || "";
-  };
-
   const loadFacebookCardFont = async () => {
     const id = "khelatv-bengali-card-font";
     let link = document.getElementById(id) as HTMLLinkElement | null;
