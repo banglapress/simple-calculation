@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { slugify } from "@/lib/slugify";
+import { invalidatePublicCategoriesCache } from "@/lib/public-data";
 
 // CREATE category
 export async function POST(req: NextRequest) {
   try {
-    const { name } = await req.json();
+    const { name, showInNav, navOrder } = await req.json();
     const slug = slugify(name);
 
     const existing = await prisma.category.findUnique({ where: { slug } });
@@ -13,9 +14,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: "Slug already exists" }, { status: 400 });
     }
 
-    const category = await prisma.category.create({
-      data: { name, slug },
+    const lastCategory = await prisma.category.findFirst({
+      orderBy: [{ navOrder: "desc" }, { id: "desc" }],
+      select: { navOrder: true },
     });
+
+    const category = await prisma.category.create({
+      data: {
+        name,
+        slug,
+        showInNav: true,
+        navOrder: (lastCategory?.navOrder || 0) + 1,
+      },
+    });
+
+    invalidatePublicCategoriesCache();
 
     return NextResponse.json(category, { status: 201 });
   } catch (error) {
@@ -29,6 +42,7 @@ export async function GET() {
   try {
     const categories = await prisma.category.findMany({
       include: { subcategories: true },
+      orderBy: [{ navOrder: "asc" }, { id: "asc" }],
     });
 
     return NextResponse.json(categories);
@@ -48,6 +62,7 @@ export async function DELETE(req: NextRequest) {
       where: { id },
     });
 
+    invalidatePublicCategoriesCache();
     return NextResponse.json({ message: "Category deleted" });
   } catch (error) {
     console.error("Category delete error:", error);
@@ -62,10 +77,30 @@ export async function PATCH(req: NextRequest) {
   const { name } = await req.json();
 
   try {
+    const data: {
+      name: string;
+      slug: string;
+      showInNav?: boolean;
+      navOrder?: number;
+    } = {
+      name,
+      slug: slugify(name),
+    };
+
+    if (typeof showInNav === "boolean") {
+      data.showInNav = showInNav;
+    }
+
+    if (Number.isInteger(navOrder) && navOrder > 0) {
+      data.navOrder = navOrder;
+    }
+
     const updated = await prisma.category.update({
       where: { id },
-      data: { name, slug: slugify(name) },
+      data,
     });
+
+    invalidatePublicCategoriesCache();
     return NextResponse.json(updated);
   } catch (error) {
     console.log(error)
