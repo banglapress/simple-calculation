@@ -23,6 +23,7 @@ export default function CategoryList() {
   const [editingCategory, setEditingCategory] = useState<number | null>(null);
   const [editingSubcategory, setEditingSubcategory] = useState<number | null>(null);
   const [editedCategoryName, setEditedCategoryName] = useState("");
+  const [editedCategorySlug, setEditedCategorySlug] = useState("");
   const [editedSubcategoryName, setEditedSubcategoryName] = useState("");
   const [editedShowInNav, setEditedShowInNav] = useState(true);
   const [editedNavOrder, setEditedNavOrder] = useState(1);
@@ -51,6 +52,7 @@ export default function CategoryList() {
   const handleEditCategory = (cat: Category) => {
     setEditingCategory(cat.id);
     setEditedCategoryName(cat.name);
+    setEditedCategorySlug(cat.slug);
     setEditedShowInNav(cat.showInNav);
     setEditedNavOrder(cat.navOrder || 1);
   };
@@ -63,6 +65,7 @@ export default function CategoryList() {
   const handleSaveCategory = async (id: number) => {
     await axios.patch(`/api/admin/categories?id=${id}`, {
       name: editedCategoryName,
+      slug: editedCategorySlug.trim(),
       showInNav: editedShowInNav,
       navOrder: Math.max(1, Math.floor(editedNavOrder || 1)),
     });
@@ -92,6 +95,16 @@ export default function CategoryList() {
                       onChange={(e: ChangeEvent<HTMLInputElement>) =>
                         setEditedCategoryName(e.target.value)
                       }
+                    />
+                    <input
+                      className="border p-1 rounded"
+                      value={editedCategorySlug}
+                      onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                        setEditedCategorySlug(e.target.value)
+                      }
+                      pattern="[a-z0-9]+(-[a-z0-9]+)*"
+                      title="শুধু English ছোট হাতের অক্ষর, সংখ্যা এবং hyphen ব্যবহার করুন"
+                      placeholder="English slug"
                     />
                     <label className="flex items-center gap-1 text-sm">
                       <input
