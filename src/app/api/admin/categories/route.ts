@@ -7,9 +7,16 @@ import { invalidatePublicCategoriesCache } from "@/lib/public-data";
 export async function POST(req: NextRequest) {
   try {
     const { name, slug: requestedSlug } = await req.json();
-    const slug = String(requestedSlug || slugify(name))
+    const slug = String(requestedSlug || "")
       .trim()
       .toLowerCase();
+
+    if (!slug) {
+      return NextResponse.json(
+        { message: "English slug আবশ্যক। যেমন: football বা swimming" },
+        { status: 400 }
+      );
+    }
 
     if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
       return NextResponse.json(
@@ -86,9 +93,16 @@ export async function PATCH(req: NextRequest) {
   const { name, slug: requestedSlug, showInNav, navOrder } = await req.json();
 
   try {
-    const slug = String(requestedSlug || slugify(name))
+    const slug = String(requestedSlug || "")
       .trim()
       .toLowerCase();
+
+    if (!slug) {
+      return NextResponse.json(
+        { message: "English slug আবশ্যক। যেমন: football বা swimming" },
+        { status: 400 }
+      );
+    }
 
     if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
       return NextResponse.json(
