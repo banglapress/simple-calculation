@@ -6,7 +6,7 @@ import { invalidatePublicCategoriesCache } from "@/lib/public-data";
 // CREATE category
 export async function POST(req: NextRequest) {
   try {
-    const { name, showInNav, navOrder } = await req.json();
+    const { name } = await req.json();
     const slug = slugify(name);
 
     const existing = await prisma.category.findUnique({ where: { slug } });
