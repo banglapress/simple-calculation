@@ -11,7 +11,7 @@ export default function CategoryForm() {
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     try {
-      await axios.post("/api/admin/categories", { name, slug });
+      await axios.post("/api/admin/categories", { name, slug: slug.trim() });
       setMessage("✅ ক্যাটাগরি যোগ হয়েছে");
       setName("");
       setSlug("");
@@ -36,12 +36,17 @@ export default function CategoryForm() {
       />
       <input
         type="text"
-        placeholder="Slug (উদা: football)"
+        placeholder="English Slug (উদা: football, swimming)"
         value={slug}
         onChange={(e: ChangeEvent<HTMLInputElement>) => setSlug(e.target.value)}
         required
+        pattern="[a-z0-9]+(-[a-z0-9]+)*"
+        title="শুধু English ছোট হাতের অক্ষর, সংখ্যা এবং hyphen ব্যবহার করুন"
         className="w-full border p-2 rounded"
       />
+      <p className="text-xs text-gray-500 -mt-2">
+        URL-এ ব্যবহারের জন্য English slug দিন। যেমন: সাঁতার → swimming
+      </p>
       <button
         type="submit"
         className="bg-blue-600 text-white px-4 py-2 rounded"
