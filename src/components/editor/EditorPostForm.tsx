@@ -541,7 +541,7 @@ export default function EditorPostForm({ postId }: { postId: string }) {
         isBreaking: currentPost.isBreaking,
         authorId: currentPost.authorId,
         status: currentPost.status,
-        featureImage: imageUrl,
+        featureImage: savedFeatureImage,
         facebookImageUrl: cardUrl,
         galleryImages: parseGallery(currentPost.galleryImages),
         placement: currentPost.placement,
