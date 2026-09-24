@@ -6,7 +6,8 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 
 async function requireEditorOrAdmin() {
   const session = await getServerSession(authOptions);
-  if (!session?.user?.id || !["EDITOR", "ADMIN"].includes(session.user.role)) {
+  const role = session?.user?.role;
+  if (!session?.user?.id || (role !== "EDITOR" && role !== "ADMIN")) {
     return null;
   }
   return session;
