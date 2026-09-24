@@ -1,7 +1,3 @@
-import { prisma } from "@/lib/prisma";
-import { buildFacebookCaption, publishFacebookPhoto } from "@/lib/facebook";
-import { v2 as cloudinary, UploadApiResponse } from "cloudinary";
-
 function getPublicSiteUrl() {
   const configured = String(process.env.NEXT_PUBLIC_SITE_URL || "").trim();
 
@@ -15,78 +11,6 @@ function getPublicSiteUrl() {
   } catch {
     return "https://www.khelatv.com";
   }
-}
-
-async function generateAndStoreFacebookCard(postId: string) {
-  const baseUrl = getPublicSiteUrl();
-
-  const cardUrl =
-    baseUrl +
-    "/api/facebook/card/" +
-    encodeURIComponent(postId) +
-    "?publish=" +
-    Date.now();
-
-  const response = await fetch(cardUrl, {
-    method: "GET",
-    cache: "no-store",
-  });
-
-  if (!response.ok) {
-    const body = await response.text().catch(() => "");
-    throw new Error(
-      "Facebook Photo Card তৈরি করা যায়নি: HTTP " +
-        response.status +
-        (body ? " — " + body.slice(0, 300) : "")
-    );
-  }
-
-  const contentType = response.headers.get("content-type") || "";
-  if (!contentType.includes("image/")) {
-    throw new Error("Facebook Photo Card থেকে image পাওয়া যায়নি।");
-  }
-
-  const buffer = Buffer.from(await response.arrayBuffer());
-  if (!buffer.length) {
-    throw new Error("Facebook Photo Card-এর image bytes পাওয়া যায়নি।");
-  }
-
-  const cloudName = String(process.env.CLOUDINARY_CLOUD_NAME || "").trim();
-  const apiKey = String(process.env.CLOUDINARY_API_KEY || "").trim();
-  const apiSecret = String(process.env.CLOUDINARY_API_SECRET || "").trim();
-
-  if (!cloudName || !apiKey || !apiSecret) {
-    throw new Error("Cloudinary server credentials পাওয়া যায়নি।");
-  }
-
-  cloudinary.config({
-    cloud_name: cloudName,
-    api_key: apiKey,
-    api_secret: apiSecret,
-  });
-
-  const uploadResult: UploadApiResponse = await new Promise(
-    (resolve, reject) => {
-      const stream = cloudinary.uploader.upload_stream(
-        {
-          folder: "khela-tv/facebook-cards",
-          resource_type: "image",
-          format: "png",
-        },
-        (error, result) => {
-          if (error || !result) {
-            reject(error || new Error("Facebook Card Cloudinary upload failed"));
-            return;
-          }
-          resolve(result);
-        }
-      );
-
-      stream.end(buffer);
-    }
-  );
-
-  return uploadResult.secure_url;
 }
 
 export async function publishPostToFacebook(
@@ -111,10 +35,6 @@ export async function publishPostToFacebook(
     };
   }
 
-  if (!options.force && !post.facebookAutoPost) {
-    return { attempted: false, published: false, reason: "disabled" };
-  }
-
   if (post.facebookStatus === "PUBLISHED" && post.facebookPostId) {
     return {
       attempted: false,
@@ -137,17 +57,29 @@ export async function publishPostToFacebook(
       tags: post.tags,
     });
 
-  let cardUrl = String(post.facebookImageUrl || "").trim();
+  const cardUrl = String(post.facebookImageUrl || "").trim();
 
-  try {
-    // Always create a real, publicly hosted Facebook card before publishing.
-    // This avoids relying on a dynamic Next.js image URL inside Meta's fetcher.
-    cardUrl = await generateAndStoreFacebookCard(postId);
-
+  if (!cardUrl) {
+    const message =
+      "Facebook Photo Card তৈরি করা হয়নি। আগে Feature Image ব্যবহার করে Photo Card তৈরি করতে হবে।";
     await prisma.post.update({
       where: { id: postId },
       data: {
-        facebookImageUrl: cardUrl,
+        facebookStatus: "FAILED",
+        facebookError: message,
+      },
+    });
+    return {
+      attempted: true,
+      published: false,
+      error: message,
+    };
+  }
+
+  try {
+    await prisma.post.update({
+      where: { id: postId },
+      data: {
         facebookCaption: caption,
         facebookStatus: "READY",
         facebookError: null,
