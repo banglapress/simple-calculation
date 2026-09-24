@@ -33,18 +33,30 @@ async function getBanglaFont() {
   }
 }
 
+function getPublicSiteUrl() {
+  const configured = String(process.env.NEXT_PUBLIC_SITE_URL || "").trim();
+
+  if (!configured) return "https://www.khelatv.com";
+
+  try {
+    const parsed = new URL(
+      /^https?:\/\//i.test(configured) ? configured : "https://" + configured
+    );
+    return parsed.toString().replace(/\/$/, "");
+  } catch {
+    return "https://www.khelatv.com";
+  }
+}
+
 function absoluteImageUrl(value: string | null | undefined) {
   const image = String(value || "").trim();
   if (!image) return "";
 
-  if (image.startsWith("http://") || image.startsWith("https://")) {
+  if (/^https?:\/\//i.test(image)) {
     return image;
   }
 
-  const base =
-    process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ||
-    "https://www.khelatv.com";
-
+  const base = getPublicSiteUrl();
   return base + (image.startsWith("/") ? image : "/" + image);
 }
 
