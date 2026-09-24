@@ -13,6 +13,8 @@ interface Category {
   id: number;
   name: string;
   slug: string;
+  showInNav: boolean;
+  navOrder: number;
   subcategories: Subcategory[];
 }
 
@@ -22,6 +24,8 @@ export default function CategoryList() {
   const [editingSubcategory, setEditingSubcategory] = useState<number | null>(null);
   const [editedCategoryName, setEditedCategoryName] = useState("");
   const [editedSubcategoryName, setEditedSubcategoryName] = useState("");
+  const [editedShowInNav, setEditedShowInNav] = useState(true);
+  const [editedNavOrder, setEditedNavOrder] = useState(1);
 
   const fetchCategories = async () => {
     const res = await axios.get<Category[]>("/api/admin/categories");
@@ -47,6 +51,8 @@ export default function CategoryList() {
   const handleEditCategory = (cat: Category) => {
     setEditingCategory(cat.id);
     setEditedCategoryName(cat.name);
+    setEditedShowInNav(cat.showInNav);
+    setEditedNavOrder(cat.navOrder || 1);
   };
 
   const handleEditSubcategory = (sub: Subcategory) => {
@@ -55,7 +61,11 @@ export default function CategoryList() {
   };
 
   const handleSaveCategory = async (id: number) => {
-    await axios.patch(`/api/admin/categories?id=${id}`, { name: editedCategoryName });
+    await axios.patch(`/api/admin/categories?id=${id}`, {
+      name: editedCategoryName,
+      showInNav: editedShowInNav,
+      navOrder: Math.max(1, Math.floor(editedNavOrder || 1)),
+    });
     setEditingCategory(null);
     fetchCategories();
   };
@@ -75,19 +85,49 @@ export default function CategoryList() {
             <div className="flex justify-between items-center">
               <div className="flex gap-2 items-center">
                 {editingCategory === cat.id ? (
-                  <>
+                  <div className="flex flex-wrap gap-2 items-center">
                     <input
-                      className="border p-1"
+                      className="border p-1 rounded"
                       value={editedCategoryName}
-                      onChange={(e: ChangeEvent<HTMLInputElement>) => setEditedCategoryName(e.target.value)}
+                      onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                        setEditedCategoryName(e.target.value)
+                      }
                     />
+                    <label className="flex items-center gap-1 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={editedShowInNav}
+                        onChange={(e) => setEditedShowInNav(e.target.checked)}
+                      />
+                      Navbar
+                    </label>
+                    <label className="flex items-center gap-1 text-sm">
+                      অবস্থান
+                      <input
+                        type="number"
+                        min={1}
+                        value={editedNavOrder}
+                        onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                          setEditedNavOrder(Number(e.target.value))
+                        }
+                        className="w-16 border p-1 rounded"
+                      />
+                    </label>
                     <button onClick={() => handleSaveCategory(cat.id)}>💾</button>
-                  </>
+                  </div>
                 ) : (
                   <>
                     <strong>{cat.name}</strong>
                     <span className="text-sm text-gray-400">({cat.slug})</span>
-                    <button onClick={() => handleEditCategory(cat)}>✏️</button>
+                    <button
+                      onClick={() => handleEditCategory(cat)}
+                      title="ক্যাটেগরি ও Navbar সেটিংস সম্পাদনা"
+                    >
+                      ✏️
+                    </button>
+                    <span className="text-xs text-slate-500">
+                      {cat.showInNav ? "Navbar: হ্যাঁ" : "Navbar: না"} · অবস্থান {cat.navOrder}
+                    </span>
                   </>
                 )}
               </div>
