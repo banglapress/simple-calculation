@@ -1,8 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
 import { prisma } from "@/lib/prisma";
 import { slugify } from "@/lib/slugify";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+
+async function requireEditorOrAdmin() {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id || !["EDITOR", "ADMIN"].includes(session.user.role)) {
+    return null;
+  }
+  return session;
+}
 
 export async function POST(req: NextRequest) {
+  const session = await requireEditorOrAdmin();
+  if (!session) return NextResponse.json({ message: "Unauthorized" }, { status: 403 });
+
   try {
     const { name, categoryId } = await req.json();
     const slug = slugify(name);
@@ -11,9 +24,7 @@ export async function POST(req: NextRequest) {
       data: {
         name,
         slug,
-        category: {
-          connect: { id: parseInt(categoryId) },
-        },
+        category: { connect: { id: parseInt(categoryId) } },
       },
     });
 
@@ -25,13 +36,13 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  const { searchParams } = new URL(req.url);
-  const id = parseInt(searchParams.get("id") || "");
+  const session = await requireEditorOrAdmin();
+  if (!session) return NextResponse.json({ message: "Unauthorized" }, { status: 403 });
+
+  const id = parseInt(new URL(req.url).searchParams.get("id") || "");
 
   try {
-    await prisma.subcategory.delete({
-      where: { id },
-    });
+    await prisma.subcategory.delete({ where: { id } });
     return NextResponse.json({ message: "Subcategory deleted" });
   } catch (error) {
     console.error("SUBCATEGORY ERROR:", error);
@@ -39,10 +50,11 @@ export async function DELETE(req: NextRequest) {
   }
 }
 
-// UPDATE subcategory name + regenerate slug
 export async function PATCH(req: NextRequest) {
-  const { searchParams } = new URL(req.url);
-  const id = parseInt(searchParams.get("id") || "");
+  const session = await requireEditorOrAdmin();
+  if (!session) return NextResponse.json({ message: "Unauthorized" }, { status: 403 });
+
+  const id = parseInt(new URL(req.url).searchParams.get("id") || "");
   const { name } = await req.json();
 
   try {
