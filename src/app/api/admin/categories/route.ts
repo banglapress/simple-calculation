@@ -6,8 +6,17 @@ import { invalidatePublicCategoriesCache } from "@/lib/public-data";
 // CREATE category
 export async function POST(req: NextRequest) {
   try {
-    const { name } = await req.json();
-    const slug = slugify(name);
+    const { name, slug: requestedSlug } = await req.json();
+    const slug = String(requestedSlug || slugify(name))
+      .trim()
+      .toLowerCase();
+
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
+      return NextResponse.json(
+        { message: "English slug দিন। যেমন: football বা swimming" },
+        { status: 400 }
+      );
+    }
 
     const existing = await prisma.category.findUnique({ where: { slug } });
     if (existing) {
@@ -74,9 +83,20 @@ export async function DELETE(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const id = parseInt(searchParams.get("id") || "");
-  const { name, showInNav, navOrder } = await req.json();
+  const { name, slug: requestedSlug, showInNav, navOrder } = await req.json();
 
   try {
+    const slug = String(requestedSlug || slugify(name))
+      .trim()
+      .toLowerCase();
+
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
+      return NextResponse.json(
+        { message: "English slug দিন। যেমন: football বা swimming" },
+        { status: 400 }
+      );
+    }
+
     const data: {
       name: string;
       slug: string;
@@ -84,7 +104,7 @@ export async function PATCH(req: NextRequest) {
       navOrder?: number;
     } = {
       name,
-      slug: slugify(name),
+      slug,
     };
 
     if (typeof showInNav === "boolean") {
