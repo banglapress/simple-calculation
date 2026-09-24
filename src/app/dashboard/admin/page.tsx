@@ -10,6 +10,17 @@ export default function AdminDashboard() {
 
       <div className="grid md:grid-cols-2 gap-4">
         <Link
+          href="/dashboard/admin/users"
+          className="block rounded-xl border bg-white p-5 hover:shadow-md transition"
+        >
+          <p className="text-2xl mb-2">👥</p>
+          <h2 className="font-bold text-lg">User Manager</h2>
+          <p className="text-sm text-gray-600 mt-1">
+            User তৈরি করুন, Reporter/Editor/Admin role নির্ধারণ করুন, password পরিবর্তন ও user মুছে ফেলুন।
+          </p>
+        </Link>
+
+        <Link
           href="/dashboard/admin/ai"
           className="block rounded-xl border bg-white p-5 hover:shadow-md transition"
         >
@@ -27,7 +38,7 @@ export default function AdminDashboard() {
           <p className="text-2xl mb-2">📂</p>
           <h2 className="font-bold text-lg">ক্যাটাগরি ম্যানেজার</h2>
           <p className="text-sm text-gray-600 mt-1">
-            Category ও subcategory তৈরি, পরিবর্তন এবং মুছুন।
+            Category ও subcategory তৈরি, পরিবর্তন এবং মুছুন। Navbar-এ দেখানোর সেটিংসও এখান থেকে নিয়ন্ত্রণ করুন।
           </p>
         </Link>
       </div>
