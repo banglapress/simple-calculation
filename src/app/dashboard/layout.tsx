@@ -90,7 +90,8 @@ export default async function DashboardLayout({
           </ul>
         </aside>
 
-        <main className="flex-1 p-6">{children}</main>
+          <main className="flex-1 p-6">{children}</main>
+        </div>
       </div>
     </Provider>
   );
