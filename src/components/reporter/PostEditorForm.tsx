@@ -184,29 +184,7 @@ export default function PostEditorForm({ postId }: { postId?: string }) {
     return data.url || null;
   };
 
-  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-
-    const submitter = (
-      e.nativeEvent as SubmitEvent
-    ).submitter as HTMLButtonElement | null;
-
-    const rawStatus =
-      submitter?.name === "submissionStatus"
-        ? submitter.value
-        : null;
-
-    const submissionStatus =
-      rawStatus === "DRAFT" || rawStatus === "PENDING"
-        ? rawStatus
-        : null;
-
-    if (!submissionStatus) {
-      setSubmittingStatus(null);
-      setMessage("❌ পোস্টের status নির্বাচন করা যায়নি।");
-      return;
-    }
-
+  const handleSubmit = async (submissionStatus: SubmissionStatus) => {
     setSubmittingStatus(submissionStatus);
     setMessage("");
 
@@ -231,8 +209,20 @@ export default function PostEditorForm({ postId }: { postId?: string }) {
 
       const savedPostId = response.data?.id || postId;
 
-      if (!postId && savedPostId) {
-        window.location.assign("/dashboard/reporter/edit/" + savedPostId);
+      if (!savedPostId) {
+        throw new Error("Server did not return a saved post ID");
+      }
+
+      if (!postId) {
+        setMessage(
+          submissionStatus === "DRAFT"
+            ? "✅ পোস্টের খসড়া সংরক্ষিত হয়েছে"
+            : "✅ পোস্টটি সম্পাদকের কাছে পাঠানো হয়েছে"
+        );
+
+        window.setTimeout(() => {
+          window.location.assign("/dashboard/reporter/edit/" + savedPostId);
+        }, 300);
         return;
       }
 
@@ -243,8 +233,15 @@ export default function PostEditorForm({ postId }: { postId?: string }) {
       );
     } catch (error) {
       const responseMessage = axios.isAxiosError(error)
-        ? error.response?.data?.message
+        ? error.response?.data?.message ||
+          error.response?.data?.detail ||
+          (error.response?.status
+            ? "সার্ভার ত্রুটি (" + error.response.status + ")"
+            : null)
+        : error instanceof Error
+        ? error.message
         : null;
+
       setMessage(
         "❌ " + (responseMessage || "সমস্যা হয়েছে। আবার চেষ্টা করুন।")
       );
@@ -252,6 +249,7 @@ export default function PostEditorForm({ postId }: { postId?: string }) {
       setSubmittingStatus(null);
     }
   };
+
 
   return (
     <form
@@ -407,9 +405,8 @@ export default function PostEditorForm({ postId }: { postId?: string }) {
 
       <div className="flex flex-wrap gap-3">
         <button
-          type="submit"
-          name="submissionStatus"
-          value="DRAFT"
+          type="button"
+          onClick={() => handleSubmit("DRAFT")}
           disabled={submittingStatus !== null}
           className="bg-gray-700 disabled:opacity-50 text-white px-5 py-2.5 rounded-lg"
         >
@@ -418,9 +415,8 @@ export default function PostEditorForm({ postId }: { postId?: string }) {
             : "খসড়া সংরক্ষণ"}
         </button>
         <button
-          type="submit"
-          name="submissionStatus"
-          value="PENDING"
+          type="button"
+          onClick={() => handleSubmit("PENDING")}
           disabled={submittingStatus !== null}
           className="bg-blue-600 disabled:opacity-50 text-white px-5 py-2.5 rounded-lg"
         >
