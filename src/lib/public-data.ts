@@ -1,4 +1,4 @@
-import { unstable_cache } from "next/cache";
+import { revalidateTag, unstable_cache } from "next/cache";
 import { prisma } from "@/lib/prisma";
 
 const HOME_REVALIDATE_SECONDS = 60;
@@ -33,13 +33,15 @@ const getCachedCategories = unstable_cache(
         id: true,
         name: true,
         slug: true,
+        showInNav: true,
+        navOrder: true,
         subcategories: {
           select: {
             id: true,
             name: true,
             slug: true,
           },
-          orderBy: { id: "asc" },
+          orderBy: [{ navOrder: "asc" }, { id: "asc" }],
         },
       },
       orderBy: { id: "asc" },
@@ -47,11 +49,16 @@ const getCachedCategories = unstable_cache(
   ["public-categories"],
   {
     revalidate: CATEGORY_REVALIDATE_SECONDS,
+    tags: ["public-categories"],
   }
 );
 
 export function getPublicCategories() {
   return getCachedCategories();
+}
+
+export function invalidatePublicCategoriesCache() {
+  revalidateTag("public-categories", "max");
 }
 
 const getCachedCategoryPage = (slug: string) =>
