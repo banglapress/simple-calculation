@@ -17,6 +17,7 @@ export async function publishPostToFacebook(
   postId: string,
   options: { force?: boolean } = {}
 ) {
+  void options;
   const post = await prisma.post.findUnique({
     where: { id: postId },
     include: {
