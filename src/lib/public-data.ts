@@ -58,7 +58,7 @@ export function getPublicCategories() {
 }
 
 export function invalidatePublicCategoriesCache() {
-  revalidateTag("public-categories", "max");
+  revalidateTag("public-categories");
 }
 
 const getCachedCategoryPage = (slug: string) =>
