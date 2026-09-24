@@ -368,6 +368,22 @@ async function uploadToCloudinary(mime: string, base64: string) {
   return result.secure_url;
 }
 
+function isFlaggedGenerationError(error: unknown) {
+  const message = String(error instanceof Error ? error.message : error);
+  return /\b3030\b|output has been flagged|choose another prompt/i.test(message);
+}
+
+function buildMinimalFallbackPrompt(originalPrompt: string) {
+  const sport = detectSport(originalPrompt);
+  return [
+    "Create a single realistic editorial sports photograph.",
+    "Show one generic adult athlete participating in " + sport + ".",
+    "Professional stadium or competition setting, natural lighting, believable newspaper photography.",
+    "Portrait 4:5 composition with one clear central subject.",
+    "No real person likeness, no celebrity resemblance, no text, no numbers, no logos, no flags, no signs, no documents, no watermark."
+  ].join("\n\n");
+}
+
 export async function generateAndStoreFacebookImage(input: {
   prompt: string;
 }) {
@@ -377,13 +393,18 @@ export async function generateAndStoreFacebookImage(input: {
   try {
     image = await generateBytes(originalPrompt);
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-
-    if (!message.includes("[3030]")) {
+    if (!isFlaggedGenerationError(error)) {
       throw error;
     }
 
-    image = await generateBytes(buildSafeFallbackPrompt(originalPrompt));
+    try {
+      image = await generateBytes(buildSafeFallbackPrompt(originalPrompt));
+    } catch (fallbackError) {
+      if (!isFlaggedGenerationError(fallbackError)) {
+        throw fallbackError;
+      }
+      image = await generateBytes(buildMinimalFallbackPrompt(originalPrompt));
+    }
   }
 
   const url = await uploadToCloudinary(image.mime, image.base64);
