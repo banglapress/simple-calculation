@@ -101,6 +101,8 @@ model Category {
   id             Int           @id @default(autoincrement())
   name           String
   slug           String        @unique
+  showInNav      Boolean       @default(true)
+  navOrder       Int           @default(0)
   subcategories  Subcategory[]
   posts          Post[]        @relation("PostCategories")
   newsFeeds      NewsFeed[]
