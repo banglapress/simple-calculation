@@ -1,14 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
 import { prisma } from "@/lib/prisma";
 import { invalidatePublicCategoriesCache } from "@/lib/public-data";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+
+async function requireEditorOrAdmin() {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id || !["EDITOR", "ADMIN"].includes(session.user.role)) {
+    return null;
+  }
+  return session;
+}
 
 // CREATE category
 export async function POST(req: NextRequest) {
+  const session = await requireEditorOrAdmin();
+  if (!session) return NextResponse.json({ message: "Unauthorized" }, { status: 403 });
+
   try {
     const { name, slug: requestedSlug } = await req.json();
-    const slug = String(requestedSlug || "")
-      .trim()
-      .toLowerCase();
+    const slug = String(requestedSlug || "").trim().toLowerCase();
 
     if (!slug) {
       return NextResponse.json(
@@ -44,7 +55,6 @@ export async function POST(req: NextRequest) {
     });
 
     invalidatePublicCategoriesCache();
-
     return NextResponse.json(category, { status: 201 });
   } catch (error) {
     console.error("Category creation error:", error);
@@ -54,6 +64,11 @@ export async function POST(req: NextRequest) {
 
 // GET all categories + subcategories
 export async function GET() {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id || !["EDITOR", "ADMIN"].includes(session.user.role)) {
+    return NextResponse.json({ message: "Unauthorized" }, { status: 403 });
+  }
+
   try {
     const categories = await prisma.category.findMany({
       include: { subcategories: true },
@@ -69,14 +84,14 @@ export async function GET() {
 
 // DELETE a category
 export async function DELETE(req: NextRequest) {
+  const session = await requireEditorOrAdmin();
+  if (!session) return NextResponse.json({ message: "Unauthorized" }, { status: 403 });
+
   const { searchParams } = new URL(req.url);
   const id = parseInt(searchParams.get("id") || "");
 
   try {
-    await prisma.category.delete({
-      where: { id },
-    });
-
+    await prisma.category.delete({ where: { id } });
     invalidatePublicCategoriesCache();
     return NextResponse.json({ message: "Category deleted" });
   } catch (error) {
@@ -85,16 +100,17 @@ export async function DELETE(req: NextRequest) {
   }
 }
 
-// UPDATE category name + regenerate slug
+// UPDATE category name + slug + navigation settings
 export async function PATCH(req: NextRequest) {
+  const session = await requireEditorOrAdmin();
+  if (!session) return NextResponse.json({ message: "Unauthorized" }, { status: 403 });
+
   const { searchParams } = new URL(req.url);
   const id = parseInt(searchParams.get("id") || "");
   const { name, slug: requestedSlug, showInNav, navOrder } = await req.json();
 
   try {
-    const slug = String(requestedSlug || "")
-      .trim()
-      .toLowerCase();
+    const slug = String(requestedSlug || "").trim().toLowerCase();
 
     if (!slug) {
       return NextResponse.json(
@@ -115,28 +131,16 @@ export async function PATCH(req: NextRequest) {
       slug: string;
       showInNav?: boolean;
       navOrder?: number;
-    } = {
-      name,
-      slug,
-    };
+    } = { name, slug };
 
-    if (typeof showInNav === "boolean") {
-      data.showInNav = showInNav;
-    }
+    if (typeof showInNav === "boolean") data.showInNav = showInNav;
+    if (Number.isInteger(navOrder) && navOrder > 0) data.navOrder = navOrder;
 
-    if (Number.isInteger(navOrder) && navOrder > 0) {
-      data.navOrder = navOrder;
-    }
-
-    const updated = await prisma.category.update({
-      where: { id },
-      data,
-    });
-
+    const updated = await prisma.category.update({ where: { id }, data });
     invalidatePublicCategoriesCache();
     return NextResponse.json(updated);
   } catch (error) {
-    console.log(error)
+    console.error("Category update error:", error);
     return NextResponse.json({ message: "Update failed" }, { status: 500 });
   }
 }
