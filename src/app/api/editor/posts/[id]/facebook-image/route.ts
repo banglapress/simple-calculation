@@ -60,9 +60,9 @@ export async function POST(
     const updated = await prisma.post.update({
       where: { id },
       data: {
-        facebookImageUrl: generated.imageUrl,
+        facebookImageUrl: null,
         facebookImagePrompt: prompt,
-        facebookStatus: "READY",
+        facebookStatus: "NONE",
         facebookError: null,
       },
       select: {
