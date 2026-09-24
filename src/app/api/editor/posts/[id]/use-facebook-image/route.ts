@@ -14,6 +14,9 @@ export async function POST(
   }
 
   const { id } = await context.params;
+  const body = await _request.json().catch(() => ({}));
+  const requestedImageUrl =
+    typeof body.imageUrl === "string" ? body.imageUrl.trim() : "";
 
   const post = await prisma.post.findUnique({
     where: { id },
@@ -30,7 +33,8 @@ export async function POST(
     return NextResponse.json({ message: "Post not found" }, { status: 404 });
   }
 
-  const imageUrl = String(post.facebookImageUrl || "").trim();
+  const imageUrl =
+    requestedImageUrl || String(post.facebookImageUrl || "").trim();
 
   if (!imageUrl) {
     return NextResponse.json(
