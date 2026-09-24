@@ -66,7 +66,8 @@ export async function POST(req: NextRequest) {
 // GET all categories + subcategories
 export async function GET() {
   const session = await getServerSession(authOptions);
-  if (!session?.user?.id || !["EDITOR", "ADMIN"].includes(session.user.role)) {
+  const role = session?.user?.role;
+  if (!session?.user?.id || (role !== "EDITOR" && role !== "ADMIN")) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 403 });
   }
 
