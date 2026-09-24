@@ -36,59 +36,71 @@ export default async function DashboardLayout({
         </header>
 
         <div className="flex min-h-[calc(100vh-57px)]">
-        <aside className="w-64 bg-gray-100 p-4">
-          <Link href="/dashboard" className="block mb-4">
-            <h2 className="font-bold text-lg">ড্যাশবোর্ড</h2>
-            <p className="text-xs text-gray-500 mt-1">খেলা টিভি</p>
-          </Link>
-          <ul className="space-y-2 text-sm">
-            {session.user.role === "REPORTER" && (
-              <>
-                <li>
-                  <Link href="/dashboard/reporter">Reporter Panel</Link>
-                </li>
-                <li>
-                  <Link
-                    href="/dashboard/reporter/new"
-                    className="font-medium text-blue-700"
-                  >
-                    ➕ নতুন পোস্ট
-                  </Link>
-                </li>
-              </>
-            )}
+          <aside className="w-64 bg-gray-100 p-4">
+            <Link href="/dashboard" className="block mb-4">
+              <h2 className="font-bold text-lg">ড্যাশবোর্ড</h2>
+              <p className="text-xs text-gray-500 mt-1">খেলা টিভি</p>
+            </Link>
+            <ul className="space-y-2 text-sm">
+              {session.user.role === "REPORTER" && (
+                <>
+                  <li>
+                    <Link href="/dashboard/reporter">Reporter Panel</Link>
+                  </li>
+                  <li>
+                    <Link
+                      href="/dashboard/reporter/new"
+                      className="font-medium text-blue-700"
+                    >
+                      ➕ নতুন পোস্ট
+                    </Link>
+                  </li>
+                </>
+              )}
 
-            {session.user.role === "EDITOR" && (
-              <li>
-                <Link href="/dashboard/editor">Editor Panel</Link>
-              </li>
-            )}
+              {session.user.role === "EDITOR" && (
+                <>
+                  <li>
+                    <Link href="/dashboard/editor">Editor Panel</Link>
+                  </li>
+                  <li>
+                    <Link href="/dashboard/admin/categories">
+                      📂 ক্যাটাগরি ম্যানেজার
+                    </Link>
+                  </li>
+                </>
+              )}
 
-            {session.user.role === "ADMIN" && (
-              <>
-                <li>
-                  <Link href="/dashboard/admin">Admin Panel</Link>
-                </li>
-                <li>
-                  <Link href="/dashboard/admin/categories">
-                    📂 ক্যাটাগরি ম্যানেজার
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/dashboard/admin/ai">
-                    🤖 AI Newsroom
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/dashboard/editor">Editor Panel</Link>
-                </li>
-                <li>
-                  <Link href="/dashboard/reporter">Reporter Panel</Link>
-                </li>
-              </>
-            )}
-          </ul>
-        </aside>
+              {session.user.role === "ADMIN" && (
+                <>
+                  <li>
+                    <Link href="/dashboard/admin">Admin Panel</Link>
+                  </li>
+                  <li>
+                    <Link href="/dashboard/admin/users">
+                      👥 User Manager
+                    </Link>
+                  </li>
+                  <li>
+                    <Link href="/dashboard/admin/categories">
+                      📂 ক্যাটাগরি ম্যানেজার
+                    </Link>
+                  </li>
+                  <li>
+                    <Link href="/dashboard/admin/ai">
+                      🤖 AI Newsroom
+                    </Link>
+                  </li>
+                  <li>
+                    <Link href="/dashboard/editor">Editor Panel</Link>
+                  </li>
+                  <li>
+                    <Link href="/dashboard/reporter">Reporter Panel</Link>
+                  </li>
+                </>
+              )}
+            </ul>
+          </aside>
 
           <main className="flex-1 p-6">{children}</main>
         </div>
