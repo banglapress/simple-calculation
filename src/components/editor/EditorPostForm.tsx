@@ -76,6 +76,171 @@ function parseGallery(value?: string | null) {
   }
 }
 
+let banglaFontLoadPromise: Promise<void> | null = null;
+
+async function ensureBanglaCanvasFont() {
+  if (typeof document === "undefined") return;
+  if (document.fonts.check('700 60px "KhelaTVBengali"', "বাংলা")) return;
+  if (!banglaFontLoadPromise) {
+    banglaFontLoadPromise = (async () => {
+      const font = new FontFace("KhelaTVBengali", "url(/fonts/NotoSerifBengali.ttf)");
+      const loaded = await font.load();
+      document.fonts.add(loaded);
+      await document.fonts.ready;
+    })();
+  }
+  await banglaFontLoadPromise;
+}
+
+function wrapCanvasText(context: CanvasRenderingContext2D, text: string, maxWidth: number, maxLines: number) {
+  const words = text.trim().split(/\s+/).filter(Boolean);
+  const lines: string[] = [];
+  let line = "";
+  for (const word of words) {
+    const candidate = line ? line + " " + word : word;
+    if (context.measureText(candidate).width <= maxWidth || !line) {
+      line = candidate;
+      continue;
+    }
+    lines.push(line);
+    line = word;
+    if (lines.length === maxLines - 1) break;
+  }
+  if (line && lines.length < maxLines) lines.push(line);
+  if (lines.length === maxLines) {
+    const original = text.trim();
+    const used = lines.join(" ");
+    if (used.length < original.length) {
+      let last = lines[lines.length - 1] || "";
+      while (last.length > 1 && context.measureText(last + "…").width > maxWidth) {
+        last = last.slice(0, -1).trimEnd();
+      }
+      lines[lines.length - 1] = last + "…";
+    }
+  }
+  return lines;
+}
+
+async function loadCardImage(source: string | Blob): Promise<{ image: HTMLImageElement; objectUrl: string }> {
+  const blob = typeof source === "string"
+    ? await fetch(source, { cache: "no-store" }).then(async (response) => {
+        if (!response.ok) throw new Error("Feature Image লোড করা যায়নি।");
+        return response.blob();
+      })
+    : source;
+  const objectUrl = URL.createObjectURL(blob);
+  try {
+    const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const element = new window.Image();
+      element.onload = () => resolve(element);
+      element.onerror = () => reject(new Error("Feature Image browser-এ খোলা যায়নি।"));
+      element.src = objectUrl;
+    });
+    return { image, objectUrl };
+  } catch (error) {
+    URL.revokeObjectURL(objectUrl);
+    throw error;
+  }
+}
+
+async function generateFacebookCardFile(
+  source: string | Blob,
+  input: { title: string; excerpt?: string | null; category?: string | null }
+) {
+  await ensureBanglaCanvasFont();
+  const { image, objectUrl } = await loadCardImage(source);
+  try {
+    const canvas = document.createElement("canvas");
+    canvas.width = 1080;
+    canvas.height = 1350;
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("Facebook Card canvas তৈরি করা যায়নি।");
+
+    context.fillStyle = "#f5f0e8";
+    context.fillRect(0, 0, 1080, 1350);
+    context.fillStyle = "#111827";
+    context.fillRect(0, 0, 1080, 96);
+    context.font = '700 30px "KhelaTVBengali"';
+    context.fillStyle = "#ffffff";
+    context.textBaseline = "middle";
+    context.fillText("KhelaTV", 48, 48);
+    context.font = "700 22px Arial";
+    const brand = "SPORTS NEWS";
+    context.fillStyle = "rgba(255,255,255,0.85)";
+    context.fillText(brand, 1080 - 48 - context.measureText(brand).width, 48);
+
+    const imageTop = 96;
+    const imageHeight = 790;
+    const scale = Math.max(1080 / image.naturalWidth, imageHeight / image.naturalHeight);
+    const drawWidth = image.naturalWidth * scale;
+    const drawHeight = image.naturalHeight * scale;
+    const drawX = (1080 - drawWidth) / 2;
+    const drawY = imageTop + (imageHeight - drawHeight) / 2;
+    context.save();
+    context.beginPath();
+    context.rect(0, imageTop, 1080, imageHeight);
+    context.clip();
+    context.drawImage(image, drawX, drawY, drawWidth, drawHeight);
+    const gradient = context.createLinearGradient(0, imageTop + imageHeight * 0.35, 0, imageTop + imageHeight);
+    gradient.addColorStop(0, "rgba(0,0,0,0.02)");
+    gradient.addColorStop(1, "rgba(0,0,0,0.68)");
+    context.fillStyle = gradient;
+    context.fillRect(0, imageTop, 1080, imageHeight);
+    context.font = '700 50px "KhelaTVBengali"';
+    context.fillStyle = "#ffffff";
+    context.textBaseline = "alphabetic";
+    context.shadowColor = "rgba(0,0,0,0.65)";
+    context.shadowBlur = 12;
+    context.shadowOffsetY = 3;
+    context.fillText("খেলা টিভি", 42, imageTop + imageHeight - 70);
+    context.shadowColor = "transparent";
+    context.shadowBlur = 0;
+    context.shadowOffsetY = 0;
+    context.font = "700 24px Arial";
+    context.fillText("khelatv.com", 42, imageTop + imageHeight - 34);
+    context.restore();
+
+    context.fillStyle = "#f5f0e8";
+    context.fillRect(0, 886, 1080, 446);
+    context.font = '700 24px "KhelaTVBengali"';
+    context.fillStyle = "#b42318";
+    context.textBaseline = "top";
+    context.fillText(String(input.category || "Sports").trim().slice(0, 80), 54, 924);
+
+    const cleanTitle = String(input.title || "").replace(/\s+/g, " ").trim();
+    let titleFontSize = cleanTitle.length > 90 ? 48 : cleanTitle.length > 60 ? 54 : 60;
+    let titleLines: string[] = [];
+    while (titleFontSize >= 44) {
+      context.font = "700 " + titleFontSize + 'px "KhelaTVBengali"';
+      titleLines = wrapCanvasText(context, cleanTitle, 970, 4);
+      if (titleLines.length <= 3) break;
+      titleFontSize -= 4;
+    }
+    context.fillStyle = "#17130f";
+    const titleLineHeight = Math.round(titleFontSize * 1.16);
+    titleLines.forEach((line, index) => context.fillText(line, 54, 970 + index * titleLineHeight));
+
+    const cleanSupport = String(input.excerpt || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 150);
+    const supportTop = 970 + titleLines.length * titleLineHeight + 16;
+    if (cleanSupport && supportTop < 1220) {
+      context.font = '400 28px "KhelaTVBengali"';
+      context.fillStyle = "#5b5147";
+      const supportLines = wrapCanvasText(context, cleanSupport, 940, 2);
+      supportLines.forEach((line, index) => context.fillText(line, 54, supportTop + index * 36));
+    }
+    context.font = '400 20px "KhelaTVBengali"';
+    context.fillStyle = "#7c7064";
+    context.fillText("www.khelatv.com", 54, 1292);
+    context.fillStyle = "#b42318";
+    context.fillRect(0, 1332, 1080, 18);
+
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png", 1));
+    if (!blob) throw new Error("Facebook Photo Card image তৈরি করা যায়নি।");
+    return new File([blob], "khelatv-facebook-card.png", { type: "image/png" });
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
 export default function EditorPostForm({ postId }: { postId: string }) {
   const [loading, setLoading] = useState(true);
   const [post, setPost] = useState<Post | null>(null);
@@ -151,42 +316,17 @@ export default function EditorPostForm({ postId }: { postId: string }) {
     return url;
   };
 
-  const makeFacebookCard = async (sourceUrl: string) => {
+  const makeFacebookCard = async (source: string | Blob) => {
     if (!post) throw new Error("পোস্ট পাওয়া যায়নি");
-    if (!sourceUrl.trim()) throw new Error("Feature Image পাওয়া যায়নি");
-
-    const response = await fetch(
-      "/api/facebook/card/" +
-        postId +
-        "?sourceImage=" +
-        encodeURIComponent(sourceUrl) +
-        "&preview=" +
-        Date.now(),
-      {
-        method: "GET",
-        cache: "no-store",
-        credentials: "include",
-      }
-    );
-
-    if (!response.ok) {
-      const message = await response.text().catch(() => "");
-      throw new Error(
-        message || "Facebook Photo Card তৈরি করা যায়নি"
-      );
+    if (!source || (typeof source === "string" && !source.trim())) {
+      throw new Error("Feature Image পাওয়া যায়নি");
     }
-
-    const blob = await response.blob();
-
-    if (!blob.size) {
-      throw new Error("Facebook Photo Card-এর image bytes পাওয়া যায়নি");
-    }
-
-    return new File([blob], "khelatv-facebook-card.png", {
-      type: blob.type || "image/png",
+    return generateFacebookCardFile(source, {
+      title: post.title,
+      excerpt: post.content,
+      category: categories.find((category) => selectedCategories.includes(category.id))?.name,
     });
   };
-
   const generateAIImage = async () => {
     if (!post) return;
 
@@ -334,7 +474,11 @@ export default function EditorPostForm({ postId }: { postId: string }) {
       const url = await uploadFile(featureImageFile);
 
       setMessage("⏳ Unicode বাংলা Facebook Card তৈরি হচ্ছে...");
-      const cardFile = await makeFacebookCard(url);
+      const cardFile = await generateFacebookCardFile(featureImageFile, {
+        title: currentPost.title,
+        excerpt: currentPost.content,
+        category: categories.find((category) => selectedCategories.includes(category.id))?.name,
+      });
       const cardUrl = await uploadFile(cardFile);
 
       const response = await axios.put("/api/editor/posts/" + postId, {
@@ -1042,7 +1186,7 @@ export default function EditorPostForm({ postId }: { postId: string }) {
             </summary>
 
             <div className="border-t p-4 space-y-4">
-              {post.featureImage ? (
+              {post.facebookImageUrl ? (
                 <div className="rounded-lg border overflow-hidden bg-slate-50">
                   <div className="flex items-center justify-between gap-2 px-3 py-2 border-b">
                     <span className="text-xs font-medium">Photo Card</span>
@@ -1056,19 +1200,14 @@ export default function EditorPostForm({ postId }: { postId: string }) {
                     </button>
                   </div>
                   <img
-                    src={
-                      (post.facebookImageUrl ||
-                        "/api/facebook/card/" + postId) +
-                      "?preview=" +
-                      cardPreviewVersion
-                    }
+                    src={post.facebookImageUrl + "?v=" + cardPreviewVersion}
                     alt="Facebook Photo Card"
                     className="w-full aspect-[4/5] object-cover"
                   />
                 </div>
               ) : (
                 <p className="text-xs text-slate-500">
-                  আগে Feature Image সেট করুন।
+                  Feature Image সেট হলে Photo Card তৈরি হবে।
                 </p>
               )}
 
