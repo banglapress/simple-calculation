@@ -41,10 +41,10 @@ const getCachedCategories = unstable_cache(
             name: true,
             slug: true,
           },
-          orderBy: [{ navOrder: "asc" }, { id: "asc" }],
+          orderBy: { id: "asc" },
         },
       },
-      orderBy: { id: "asc" },
+      orderBy: [{ navOrder: "asc" }, { id: "asc" }],
     }),
   ["public-categories"],
   {
