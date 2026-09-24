@@ -2,7 +2,9 @@ import Link from "next/link";
 import { getPublicCategories } from "@/lib/public-data";
 
 export default async function Navbar() {
-  const categories = await getPublicCategories();
+  const categories = (await getPublicCategories()).filter(
+    (category) => category.showInNav
+  );
 
   return (
     <header className="bg-white border-b sticky top-0 z-50">
