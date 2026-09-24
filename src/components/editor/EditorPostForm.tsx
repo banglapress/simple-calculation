@@ -1182,7 +1182,16 @@ export default function EditorPostForm({ postId }: { postId: string }) {
                 onClick={async () => {
                   try {
                     const response = await axios.post(
-                      "/api/editor/posts/" + postId + "/facebook-image-prompt"
+                      "/api/editor/posts/" + postId + "/facebook-image-prompt",
+                      {
+                        title: post?.title || "",
+                        content: post?.content || "",
+                        tags: post?.tags || "",
+                        category:
+                          categories.find((category) =>
+                            selectedCategories.includes(category.id)
+                          )?.name || "",
+                      }
                     );
                     setAiImagePrompt(String(response.data?.prompt || ""));
                     setMessage("✅ Article text থেকে editable AI image prompt তৈরি হয়েছে।");
