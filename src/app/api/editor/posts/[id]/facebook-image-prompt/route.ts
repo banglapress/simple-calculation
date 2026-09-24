@@ -17,6 +17,7 @@ export async function POST(
   }
 
   const { id } = await context.params;
+  const body = await _request.json().catch(() => ({}));
 
   const post = await prisma.post.findUnique({
     where: { id },
@@ -27,11 +28,28 @@ export async function POST(
     return NextResponse.json({ message: "Post not found" }, { status: 404 });
   }
 
+  const title =
+    typeof body.title === "string" && body.title.trim()
+      ? body.title.trim()
+      : post.title;
+  const excerpt =
+    typeof body.content === "string" && body.content.trim()
+      ? body.content
+      : post.excerpt;
+  const category =
+    typeof body.category === "string" && body.category.trim()
+      ? body.category.trim()
+      : post.categories[0]?.name;
+  const tags =
+    typeof body.tags === "string" && body.tags.trim()
+      ? body.tags
+      : post.tags;
+
   const prompt = defaultFacebookImagePrompt({
-    title: post.title,
-    excerpt: post.excerpt,
-    category: post.categories[0]?.name,
-    tags: post.tags,
+    title,
+    excerpt,
+    category,
+    tags,
   });
 
   await prisma.post.update({
