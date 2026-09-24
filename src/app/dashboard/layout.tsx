@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { authOptions } from "../api/auth/[...nextauth]/route";
 import Provider from "@/components/SessionProvider";
+import LogoutButton from "@/components/dashboard/LogoutButton";
 
 export default async function DashboardLayout({
   children,
@@ -16,9 +17,30 @@ export default async function DashboardLayout({
 
   return (
     <Provider session={session}>
-      <div className="flex min-h-screen">
+      <div className="min-h-screen bg-gray-50">
+        <header className="border-b bg-white">
+          <div className="flex items-center justify-between px-4 py-3 sm:px-6">
+            <Link href="/" className="font-[NotoSerifBengali] text-2xl font-bold text-red-600">
+              খেলা টিভি
+            </Link>
+            <div className="flex items-center gap-4 text-sm">
+              <span className="hidden text-gray-600 sm:inline">{session.user.email}</span>
+              <Link href="/" className="text-gray-700 hover:text-red-600">
+                সাইট দেখুন
+              </Link>
+              <div className="w-24">
+                <LogoutButton />
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <div className="flex min-h-[calc(100vh-57px)]">
         <aside className="w-64 bg-gray-100 p-4">
-          <h2 className="font-bold mb-4">ড্যাশবোর্ড</h2>
+          <Link href="/dashboard" className="block mb-4">
+            <h2 className="font-bold text-lg">ড্যাশবোর্ড</h2>
+            <p className="text-xs text-gray-500 mt-1">খেলা টিভি</p>
+          </Link>
           <ul className="space-y-2 text-sm">
             {session.user.role === "REPORTER" && (
               <>
