@@ -1387,7 +1387,7 @@ export default function EditorPostForm({ postId }: { postId: string }) {
             </summary>
 
             <div className="border-t p-4 space-y-4">
-              {post.featureImage ? (
+              {post.facebookImageUrl ? (
                 <div className="rounded-lg border overflow-hidden bg-slate-50">
                   <div className="flex items-center justify-between gap-2 px-3 py-2 border-b">
                     <span className="text-xs font-medium">Photo Card</span>
@@ -1397,19 +1397,28 @@ export default function EditorPostForm({ postId }: { postId: string }) {
                       disabled={featureImageBusy}
                       className="border px-2.5 py-1.5 rounded text-xs"
                     >
-                      🔄 রিফ্রেশ
+                      🔄 আবার তৈরি করুন
                     </button>
                   </div>
                   <img
-                    src={
-                      (post.facebookImageUrl ||
-                        "/api/facebook/card/" + postId) +
-                      "?preview=" +
-                      cardPreviewVersion
-                    }
+                    src={post.facebookImageUrl + "?v=" + cardPreviewVersion}
                     alt="Facebook Photo Card"
                     className="w-full aspect-[4/5] object-cover"
                   />
+                </div>
+              ) : post.featureImage ? (
+                <div className="rounded-lg border bg-slate-50 p-3">
+                  <p className="text-sm font-medium text-slate-700">
+                    Feature Image আছে, কিন্তু Photo Card এখনো তৈরি হয়নি।
+                  </p>
+                  <button
+                    type="button"
+                    onClick={regenerateFacebookCard}
+                    disabled={featureImageBusy}
+                    className="w-full mt-3 bg-slate-900 disabled:opacity-50 text-white px-3 py-2.5 rounded-lg text-sm font-medium"
+                  >
+                    {featureImageBusy ? "⏳ Photo Card তৈরি হচ্ছে..." : "🖼️ Photo Card তৈরি করুন"}
+                  </button>
                 </div>
               ) : (
                 <p className="text-xs text-slate-500">
