@@ -2,7 +2,7 @@
 
 "use client";
 
-import { useState, useEffect, FormEvent, ChangeEvent } from "react";
+import { useState, useEffect, ChangeEvent } from "react";
 import axios from "axios";
 import dynamic from "next/dynamic";
 
@@ -253,7 +253,7 @@ export default function PostEditorForm({ postId }: { postId?: string }) {
 
   return (
     <form
-      onSubmit={handleSubmit}
+      onSubmit={(e) => e.preventDefault()}
       className="space-y-5 bg-white p-5 rounded-xl shadow-sm border"
     >
       <div className="rounded-xl border border-blue-100 bg-blue-50 p-4 space-y-3">
