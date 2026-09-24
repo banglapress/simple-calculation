@@ -349,11 +349,8 @@ export default function EditorPostForm({ postId }: { postId: string }) {
       setAiGeneratedImageUrl(generatedUrl);
       setPost({
         ...post,
-        facebookImageUrl: generatedUrl,
         facebookImagePrompt:
           response.data?.prompt || aiImagePrompt.trim() || null,
-        facebookStatus: "READY",
-        facebookError: null,
       });
 
       setMessage(
@@ -378,21 +375,13 @@ export default function EditorPostForm({ postId }: { postId: string }) {
     if (!post || !aiGeneratedImageUrl) return;
 
     const currentPost = post;
+    const sourceUrl = aiGeneratedImageUrl;
 
     setAiImageBusy(true);
-    setMessage("⏳ AI ছবিটি Article Cover এবং Facebook Card-এর জন্য প্রস্তুত করা হচ্ছে...");
+    setMessage("⏳ AI ছবি থেকে Article Cover এবং Facebook Photo Card তৈরি হচ্ছে...");
 
     try {
-      const response = await axios.post(
-        "/api/editor/posts/" + postId + "/use-facebook-image"
-      );
-
-      const imageUrl = String(response.data?.post?.featureImage || "").trim();
-      if (!imageUrl) {
-        throw new Error("AI image-টি Article Cover হিসেবে save করা যায়নি");
-      }
-
-      const cardFile = await makeFacebookCard(imageUrl);
+      const cardFile = await makeFacebookCard(sourceUrl);
       const cardUrl = await uploadFile(cardFile);
 
       const saveResponse = await axios.put("/api/editor/posts/" + postId, {
@@ -402,7 +391,7 @@ export default function EditorPostForm({ postId }: { postId: string }) {
         isBreaking: currentPost.isBreaking,
         authorId: currentPost.authorId,
         status: currentPost.status,
-        featureImage: imageUrl,
+        featureImage: sourceUrl,
         facebookImageUrl: cardUrl,
         galleryImages: parseGallery(currentPost.galleryImages),
         placement: currentPost.placement,
@@ -416,7 +405,7 @@ export default function EditorPostForm({ postId }: { postId: string }) {
 
       setPost({
         ...currentPost,
-        featureImage: String(saved?.featureImage || imageUrl),
+        featureImage: String(saved?.featureImage || sourceUrl),
         facebookImageUrl: String(saved?.facebookImageUrl || cardUrl),
         facebookImagePrompt: currentPost.facebookImagePrompt,
         facebookStatus: "READY",
@@ -425,9 +414,24 @@ export default function EditorPostForm({ postId }: { postId: string }) {
 
       setAiGeneratedImageUrl(null);
       setCardPreviewVersion(Date.now());
-      setMessage(
-        "✅ AI ছবি Article Cover হয়েছে এবং নতুন Facebook Card তৈরি হয়েছে।"
-      );
+
+      try {
+        const captionResponse = await axios.post(
+          "/api/editor/posts/" + postId + "/facebook-caption"
+        );
+        setPost((current) =>
+          current
+            ? { ...current, facebookCaption: captionResponse.data.caption }
+            : current
+        );
+        setMessage(
+          "✅ AI ছবি Article Cover হয়েছে, Facebook Photo Card তৈরি হয়েছে এবং Caption তৈরি হয়েছে।"
+        );
+      } catch {
+        setMessage(
+          "✅ AI ছবি Article Cover হয়েছে এবং Facebook Photo Card তৈরি হয়েছে। Caption তৈরি করা যায়নি।"
+        );
+      }
     } catch (error) {
       const msg = axios.isAxiosError(error)
         ? error.response?.data?.message ||
@@ -516,9 +520,23 @@ export default function EditorPostForm({ postId }: { postId: string }) {
       setFeatureImagePreview(null);
       setCardPreviewVersion(Date.now());
 
-      setMessage(
-        "✅ ছবি ব্যবহার করা হয়েছে এবং Unicode বাংলা Facebook Card তৈরি হয়েছে।"
-      );
+      try {
+        const captionResponse = await axios.post(
+          "/api/editor/posts/" + postId + "/facebook-caption"
+        );
+        setPost((current) =>
+          current
+            ? { ...current, facebookCaption: captionResponse.data.caption }
+            : current
+        );
+        setMessage(
+          "✅ ছবি Article Cover হয়েছে, Unicode বাংলা Facebook Card তৈরি হয়েছে এবং Caption তৈরি হয়েছে।"
+        );
+      } catch {
+        setMessage(
+          "✅ ছবি Article Cover হয়েছে এবং Unicode বাংলা Facebook Card তৈরি হয়েছে। Caption তৈরি করা যায়নি।"
+        );
+      }
     } catch (error) {
       setMessage(
         "❌ " +
@@ -574,7 +592,23 @@ export default function EditorPostForm({ postId }: { postId: string }) {
         facebookError: null,
       });
       setCardPreviewVersion(Date.now());
-      setMessage("✅ Unicode বাংলা Facebook Card নতুন করে তৈরি হয়েছে।");
+      try {
+        const captionResponse = await axios.post(
+          "/api/editor/posts/" + postId + "/facebook-caption"
+        );
+        setPost((current) =>
+          current
+            ? { ...current, facebookCaption: captionResponse.data.caption }
+            : current
+        );
+        setMessage(
+          "✅ Unicode বাংলা Facebook Card নতুন করে তৈরি হয়েছে এবং Caption আপডেট হয়েছে।"
+        );
+      } catch {
+        setMessage(
+          "✅ Unicode বাংলা Facebook Card নতুন করে তৈরি হয়েছে। Caption আপডেট করা যায়নি।"
+        );
+      }
     } catch (error) {
       setMessage(
         "❌ " +
@@ -1142,6 +1176,30 @@ export default function EditorPostForm({ postId }: { postId: string }) {
                 placeholder="AI image prompt..."
                 disabled={aiImageBusy}
               />
+
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    const response = await axios.post(
+                      "/api/editor/posts/" + postId + "/facebook-image-prompt"
+                    );
+                    setAiImagePrompt(String(response.data?.prompt || ""));
+                    setMessage("✅ Article text থেকে editable AI image prompt তৈরি হয়েছে।");
+                  } catch (error) {
+                    setMessage(
+                      "❌ " +
+                        (axios.isAxiosError(error)
+                          ? error.response?.data?.message || "AI image prompt তৈরি করা যায়নি"
+                          : "AI image prompt তৈরি করা যায়নি")
+                    );
+                  }
+                }}
+                disabled={aiImageBusy}
+                className="w-full border bg-white px-3 py-2.5 rounded-lg text-sm"
+              >
+                🧠 Article থেকে Prompt তৈরি করুন
+              </button>
 
               <button
                 type="button"
