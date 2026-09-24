@@ -74,7 +74,7 @@ export async function DELETE(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const id = parseInt(searchParams.get("id") || "");
-  const { name } = await req.json();
+  const { name, showInNav, navOrder } = await req.json();
 
   try {
     const data: {
