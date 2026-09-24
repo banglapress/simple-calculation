@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { slugify } from "@/lib/slugify";
 import { invalidatePublicCategoriesCache } from "@/lib/public-data";
 
 // CREATE category
