@@ -76,6 +76,300 @@ function parseGallery(value?: string | null) {
   }
 }
 
+let bengaliCardFontPromise: Promise<void> | null = null;
+
+async function ensureBengaliCardFont() {
+  if (typeof document === "undefined") return;
+
+  if (!bengaliCardFontPromise) {
+    bengaliCardFontPromise = (async () => {
+      const font = new FontFace(
+        "KhelaTVBengali",
+        'url("/fonts/NotoSerifBengali.ttf")',
+        { weight: "100 900", style: "normal" }
+      );
+      const loaded = await font.load();
+      document.fonts.add(loaded);
+      await document.fonts.ready;
+    })().catch((error) => {
+      bengaliCardFontPromise = null;
+      throw error;
+    });
+  }
+
+  await bengaliCardFontPromise;
+}
+
+function wrapCardText(
+  context: CanvasRenderingContext2D,
+  text: string,
+  maxWidth: number,
+  maxLines: number
+) {
+  const words = text.replace(/\s+/g, " ").trim().split(" ").filter(Boolean);
+  const lines: string[] = [];
+  let line = "";
+
+  for (const word of words) {
+    const next = line ? line + " " + word : word;
+
+    if (!line || context.measureText(next).width <= maxWidth) {
+      line = next;
+      continue;
+    }
+
+    lines.push(line);
+    line = word;
+
+    if (lines.length === maxLines - 1) break;
+  }
+
+  if (line && lines.length < maxLines) lines.push(line);
+
+  if (lines.length === maxLines) {
+    const used = lines.join(" ");
+    const original = text.replace(/\s+/g, " ").trim();
+
+    if (used.length < original.length) {
+      let last = lines[lines.length - 1] || "";
+
+      while (
+        last.length > 1 &&
+        context.measureText(last + "…").width > maxWidth
+      ) {
+        last = last.slice(0, -1).trimEnd();
+      }
+
+      lines[lines.length - 1] = last + "…";
+    }
+  }
+
+  return lines;
+}
+
+async function loadCardImage(source: string | Blob) {
+  let blob: Blob;
+
+  if (typeof source === "string") {
+    const response = await fetch(source, { cache: "no-store" });
+
+    if (!response.ok) {
+      throw new Error(
+        "Feature Image লোড করা যায়নি (HTTP " + response.status + ")."
+      );
+    }
+
+    blob = await response.blob();
+  } else {
+    blob = source;
+  }
+
+  const objectUrl = URL.createObjectURL(blob);
+
+  try {
+    const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const element = new window.Image();
+
+      element.onload = () => resolve(element);
+      element.onerror = () =>
+        reject(new Error("Feature Image browser-এ খোলা যায়নি।"));
+
+      element.src = objectUrl;
+    });
+
+    return { image, objectUrl };
+  } catch (error) {
+    URL.revokeObjectURL(objectUrl);
+    throw error;
+  }
+}
+
+async function createFacebookCardFile(
+  source: string | Blob,
+  input: {
+    title: string;
+    content?: string | null;
+    category?: string | null;
+  }
+) {
+  await ensureBengaliCardFont();
+
+  const { image, objectUrl } = await loadCardImage(source);
+
+  try {
+    const canvas = document.createElement("canvas");
+    canvas.width = 1080;
+    canvas.height = 1350;
+
+    const context = canvas.getContext("2d");
+
+    if (!context) {
+      throw new Error("Facebook Photo Card canvas তৈরি করা যায়নি।");
+    }
+
+    context.fillStyle = "#f5f0e8";
+    context.fillRect(0, 0, 1080, 1350);
+
+    context.fillStyle = "#111827";
+    context.fillRect(0, 0, 1080, 96);
+
+    context.font = '700 30px "KhelaTVBengali"';
+    context.fillStyle = "#ffffff";
+    context.textBaseline = "middle";
+    context.fillText("KhelaTV", 48, 48);
+
+    context.font = "700 22px Arial";
+    const brand = "SPORTS NEWS";
+    context.fillStyle = "rgba(255,255,255,0.86)";
+    context.fillText(
+      brand,
+      1080 - 48 - context.measureText(brand).width,
+      48
+    );
+
+    const imageTop = 96;
+    const imageHeight = 790;
+    const scale = Math.max(
+      1080 / image.naturalWidth,
+      imageHeight / image.naturalHeight
+    );
+    const drawWidth = image.naturalWidth * scale;
+    const drawHeight = image.naturalHeight * scale;
+    const drawX = (1080 - drawWidth) / 2;
+    const drawY = imageTop + (imageHeight - drawHeight) / 2;
+
+    context.save();
+    context.beginPath();
+    context.rect(0, imageTop, 1080, imageHeight);
+    context.clip();
+
+    context.drawImage(image, drawX, drawY, drawWidth, drawHeight);
+
+    const gradient = context.createLinearGradient(
+      0,
+      imageTop + imageHeight * 0.35,
+      0,
+      imageTop + imageHeight
+    );
+    gradient.addColorStop(0, "rgba(0,0,0,0.02)");
+    gradient.addColorStop(1, "rgba(0,0,0,0.68)");
+    context.fillStyle = gradient;
+    context.fillRect(0, imageTop, 1080, imageHeight);
+
+    context.font = '700 50px "KhelaTVBengali"';
+    context.fillStyle = "#ffffff";
+    context.textBaseline = "alphabetic";
+    context.shadowColor = "rgba(0,0,0,0.65)";
+    context.shadowBlur = 12;
+    context.shadowOffsetY = 3;
+    context.fillText(
+      "খেলা টিভি",
+      42,
+      imageTop + imageHeight - 70
+    );
+
+    context.shadowColor = "transparent";
+    context.shadowBlur = 0;
+    context.shadowOffsetY = 0;
+    context.font = "700 24px Arial";
+    context.fillText(
+      "khelatv.com",
+      42,
+      imageTop + imageHeight - 34
+    );
+
+    context.restore();
+
+    context.fillStyle = "#f5f0e8";
+    context.fillRect(0, 886, 1080, 446);
+
+    context.font = '700 24px "KhelaTVBengali"';
+    context.fillStyle = "#b42318";
+    context.textBaseline = "top";
+    context.fillText(
+      String(input.category || "Sports").trim().slice(0, 80),
+      54,
+      924
+    );
+
+    const title = String(input.title || "")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    let fontSize =
+      title.length > 90 ? 48 : title.length > 60 ? 54 : 60;
+
+    let titleLines: string[] = [];
+
+    while (fontSize >= 42) {
+      context.font =
+        '700 ' + fontSize + 'px "KhelaTVBengali"';
+
+      titleLines = wrapCardText(context, title, 970, 4);
+
+      if (titleLines.length <= 3) break;
+
+      fontSize -= 4;
+    }
+
+    context.fillStyle = "#17130f";
+    const titleLineHeight = Math.round(fontSize * 1.16);
+
+    titleLines.forEach((line, index) => {
+      context.fillText(
+        line,
+        54,
+        970 + index * titleLineHeight
+      );
+    });
+
+    const support = String(input.content || "")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 150);
+
+    const supportTop =
+      970 + titleLines.length * titleLineHeight + 16;
+
+    if (support && supportTop < 1210) {
+      context.font = '400 28px "KhelaTVBengali"';
+      context.fillStyle = "#5b5147";
+
+      wrapCardText(context, support, 940, 2).forEach(
+        (line, index) => {
+          context.fillText(
+            line,
+            54,
+            supportTop + index * 36
+          );
+        }
+      );
+    }
+
+    context.font = '400 20px "KhelaTVBengali"';
+    context.fillStyle = "#7c7064";
+    context.fillText("www.khelatv.com", 54, 1292);
+
+    context.fillStyle = "#b42318";
+    context.fillRect(0, 1332, 1080, 18);
+
+    const blob = await new Promise<Blob | null>((resolve) => {
+      canvas.toBlob(resolve, "image/png");
+    });
+
+    if (!blob) {
+      throw new Error("Facebook Photo Card image তৈরি করা যায়নি।");
+    }
+
+    return new File([blob], "khelatv-facebook-card.png", {
+      type: "image/png",
+    });
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
 export default function EditorPostForm({ postId }: { postId: string }) {
   const [loading, setLoading] = useState(true);
   const [post, setPost] = useState<Post | null>(null);
@@ -151,39 +445,19 @@ export default function EditorPostForm({ postId }: { postId: string }) {
     return url;
   };
 
-  const makeFacebookCard = async (sourceUrl: string) => {
+  const makeFacebookCard = async (source: string | Blob) => {
     if (!post) throw new Error("পোস্ট পাওয়া যায়নি");
-    if (!sourceUrl.trim()) throw new Error("Feature Image পাওয়া যায়নি");
 
-    const response = await fetch(
-      "/api/facebook/card/" +
-        postId +
-        "?sourceImage=" +
-        encodeURIComponent(sourceUrl) +
-        "&preview=" +
-        Date.now(),
-      {
-        method: "GET",
-        cache: "no-store",
-        credentials: "include",
-      }
-    );
-
-    if (!response.ok) {
-      const message = await response.text().catch(() => "");
-      throw new Error(
-        message || "Facebook Photo Card তৈরি করা যায়নি"
-      );
+    if (!source || (typeof source === "string" && !source.trim())) {
+      throw new Error("Feature Image পাওয়া যায়নি");
     }
 
-    const blob = await response.blob();
-
-    if (!blob.size) {
-      throw new Error("Facebook Photo Card-এর image bytes পাওয়া যায়নি");
-    }
-
-    return new File([blob], "khelatv-facebook-card.png", {
-      type: blob.type || "image/png",
+    return createFacebookCardFile(source, {
+      title: post.title,
+      content: post.content,
+      category: categories.find((category) =>
+        selectedCategories.includes(category.id)
+      )?.name,
     });
   };
 
@@ -242,18 +516,23 @@ export default function EditorPostForm({ postId }: { postId: string }) {
     setMessage("⏳ AI ছবিটি Article Cover এবং Facebook Card-এর জন্য প্রস্তুত করা হচ্ছে...");
 
     try {
-      const response = await axios.post(
-        "/api/editor/posts/" + postId + "/use-facebook-image",
-        { imageUrl: aiGeneratedImageUrl }
-      );
+      const imageUrl = String(aiGeneratedImageUrl).trim();
 
-      const imageUrl = String(response.data?.post?.featureImage || "").trim();
       if (!imageUrl) {
-        throw new Error("AI image-টি Article Cover হিসেবে save করা যায়নি");
+        throw new Error("AI image পাওয়া যায়নি");
       }
 
       const cardFile = await makeFacebookCard(imageUrl);
       const cardUrl = await uploadFile(cardFile);
+
+      const response = await axios.post(
+        "/api/editor/posts/" + postId + "/use-facebook-image",
+        { imageUrl }
+      );
+
+      const savedFeatureImage = String(
+        response.data?.post?.featureImage || imageUrl
+      ).trim();
 
       const saveResponse = await axios.put("/api/editor/posts/" + postId, {
         title: currentPost.title,
@@ -346,11 +625,15 @@ export default function EditorPostForm({ postId }: { postId: string }) {
     setMessage("");
 
     try {
-      const url = await uploadFile(featureImageFile);
+      const localImageFile = featureImageFile;
 
       setMessage("⏳ Unicode বাংলা Facebook Card তৈরি হচ্ছে...");
-      const cardFile = await makeFacebookCard(url);
-      const cardUrl = await uploadFile(cardFile);
+
+      const cardFile = await makeFacebookCard(localImageFile);
+      const [url, cardUrl] = await Promise.all([
+        uploadFile(localImageFile),
+        uploadFile(cardFile),
+      ]);
 
       const response = await axios.put("/api/editor/posts/" + postId, {
         title: currentPost.title,
