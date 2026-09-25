@@ -205,7 +205,11 @@ async function PostPage({ post }: { post: NonNullable<PublicPost> }) {
 
           <div className="text-sm text-gray-500">
             ✍️ {post.author?.name} •{" "}
-            {new Date(post.createdAt).toLocaleString("bn-BD")}
+            {new Intl.DateTimeFormat("bn-BD", {
+              timeZone: "Asia/Dhaka",
+              dateStyle: "medium",
+              timeStyle: "medium",
+            }).format(new Date(post.createdAt))}
           </div>
 
           {post.featureImage && (
