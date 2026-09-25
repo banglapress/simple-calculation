@@ -4,6 +4,7 @@ import path from "node:path";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { prisma } from "@/lib/prisma";
+import { fetchPublicResource } from "@/lib/safe-fetch";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -64,28 +65,23 @@ async function loadImageDataUrl(url: string) {
   if (!url) return "";
 
   try {
-    const response = await fetch(url, {
+    const resource = await fetchPublicResource(url, {
+      timeoutMs: 8000,
+      maxBytes: 2 * 1024 * 1024,
+      allowedContentTypes: ["image/"],
       headers: {
         "User-Agent":
           "Mozilla/5.0 (compatible; KhelaTV-Facebook-Card/1.0; +https://www.khelatv.com)",
         Accept:
-          "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+          "image/avif,image/webp,image/apng,image/jpeg,image/png,image/*;q=0.8",
       },
-      cache: "no-store",
     });
-
-    if (!response.ok) return "";
-
-    const contentType = response.headers.get("content-type") || "image/jpeg";
-    const buffer = await response.arrayBuffer();
-
-    if (buffer.byteLength > 7 * 1024 * 1024) return "";
 
     return (
       "data:" +
-      contentType.split(";")[0] +
+      resource.contentType +
       ";base64," +
-      Buffer.from(buffer).toString("base64")
+      resource.body.toString("base64")
     );
   } catch {
     return "";
@@ -128,11 +124,7 @@ export async function GET(
     .slice(0, 150);
   const categoryName = post.categories[0]?.name || "Sports";
   // The article feature image is the single source of truth for the Facebook card.
-  const requestUrl = new URL(_request.url);
-  const overrideSourceImage = requestUrl.searchParams.get("sourceImage");
-  const sourceImage = absoluteImageUrl(
-    overrideSourceImage || post.featureImage
-  );
+  const sourceImage = absoluteImageUrl(post.featureImage);
   const imageUrl = await loadImageDataUrl(sourceImage);
   const font = await getBanglaFont();
 
