@@ -35,13 +35,13 @@ export default async function DashboardLayout({
           </div>
         </header>
 
-        <div className="flex min-h-[calc(100vh-57px)]">
-          <aside className="w-64 bg-gray-100 p-4">
+        <div className="flex min-h-[calc(100vh-57px)] flex-col md:flex-row">
+          <aside className="w-full shrink-0 border-b bg-gray-100 p-3 md:w-64 md:border-b-0 md:p-4">
             <Link href="/dashboard" className="block mb-4">
               <h2 className="font-bold text-lg">ড্যাশবোর্ড</h2>
               <p className="text-xs text-gray-500 mt-1">খেলা টিভি</p>
             </Link>
-            <ul className="space-y-2 text-sm">
+            <ul className="flex flex-wrap gap-x-4 gap-y-2 text-sm md:block md:space-y-2">
               {session.user.role === "REPORTER" && (
                 <>
                   <li>
@@ -102,7 +102,7 @@ export default async function DashboardLayout({
             </ul>
           </aside>
 
-          <main className="flex-1 p-6">{children}</main>
+          <main className="min-w-0 flex-1 p-3 sm:p-4 md:p-6">{children}</main>
         </div>
       </div>
     </Provider>
