@@ -3,7 +3,6 @@
 
 import { useState } from "react";
 import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 export default function LoginPage() {
@@ -11,7 +10,6 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,9 +28,10 @@ export default function LoginPage() {
         throw new Error(result.error);
       }
 
-      if (result?.url) {
-        router.push(result.url);
-        router.refresh(); // Important to refresh the session state
+      if (result?.ok) {
+        window.location.assign("/dashboard");
+      } else {
+        throw new Error("Login failed");
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");
