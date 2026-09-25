@@ -11,8 +11,8 @@ export default async function DashboardLayout({
 }) {
   const session = await getServerSession(authOptions);
 
-  if (!session) {
-    return <div className="p-4 text-red-600">আপনি লগইন করেননি।</div>;
+  if (!session?.user?.email) {
+    return <div className="p-4 text-red-600">আপনার session আর বৈধ নয়। আবার লগইন করুন।</div>;
   }
 
   return (
