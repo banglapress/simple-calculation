@@ -23,7 +23,7 @@ export async function POST(
 
   const limited = rateLimitActor(
     req,
-    session.user.email,
+    session.user.email ?? "unknown",
     "facebook-ai-image",
     12,
     60 * 60 * 1000
