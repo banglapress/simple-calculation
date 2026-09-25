@@ -558,7 +558,7 @@ export default function EditorPostForm({ postId }: { postId: string }) {
 
       const saveResponse = await axios.put("/api/editor/posts/" + postId, {
         title: currentPost.title,
-        content: contentWithImages,
+        content: currentPost.content,
         tags: currentPost.tags,
         isBreaking: currentPost.isBreaking,
         authorId: currentPost.authorId,
