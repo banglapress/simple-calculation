@@ -76,12 +76,51 @@ export const authOptions: NextAuthOptions = {
       return token;
     },
     async session({ session, token }) {
+      if (!token.id || !token.email) {
+        session.user.id = undefined;
+        session.user.email = undefined;
+        session.user.name = undefined;
+        session.user.role = undefined;
+        session.user.sessionVersion = undefined;
+        return session;
+      }
+
+      if (typeof token.sessionVersion === "number") {
+        const currentUser = await prisma.user.findUnique({
+          where: { id: token.id },
+          select: {
+            sessionVersion: true,
+            role: true,
+            name: true,
+            email: true,
+          },
+        });
+
+        if (
+          !currentUser ||
+          currentUser.sessionVersion !== token.sessionVersion
+        ) {
+          session.user.id = undefined;
+          session.user.email = undefined;
+          session.user.name = undefined;
+          session.user.role = undefined;
+          session.user.sessionVersion = undefined;
+          return session;
+        }
+
+        session.user.name = currentUser.name;
+        session.user.email = currentUser.email;
+        session.user.role = currentUser.role;
+      } else {
+        session.user.role = token.role;
+      }
+
       session.user.id = token.id;
-      session.user.role = token.role;
       session.user.sessionVersion = token.sessionVersion;
       return session;
     },
   },
+
 
   cookies: {
     sessionToken: {
