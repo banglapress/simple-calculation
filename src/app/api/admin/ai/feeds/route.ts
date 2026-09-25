@@ -149,6 +149,18 @@ export async function PUT(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!allowed(session)) return NextResponse.json({ message: "Forbidden" }, { status: 403 });
 
+  const limited = rateLimitActor(
+    req,
+    session.user.email || "unknown",
+    "admin-rss-test",
+    30,
+    60 * 60 * 1000
+  );
+
+  if (!limited.success) {
+    return rateLimitResponse(limited.resetAt);
+  }
+
   try {
     const body = await req.json();
     const id = Number(body.id);
