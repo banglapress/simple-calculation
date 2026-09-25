@@ -875,7 +875,7 @@ export default function EditorPostForm({ postId }: { postId: string }) {
 
       const saveResponse = await axios.put("/api/editor/posts/" + postId, {
         title: currentPost.title,
-        content: currentPost.content,
+        content: contentWithImages,
         tags: currentPost.tags,
         isBreaking: currentPost.isBreaking,
         authorId: currentPost.authorId,
@@ -890,12 +890,12 @@ export default function EditorPostForm({ postId }: { postId: string }) {
       });
 
       setGalleryImages(uploadedGallery);
-      setGalleryFiles([]);
       if (saveResponse.data?.post) {
         setPost((current) =>
           current
             ? {
                 ...current,
+                content: saveResponse.data.post.content,
                 featureImage: saveResponse.data.post.featureImage,
                 facebookImageUrl: saveResponse.data.post.facebookImageUrl,
                 facebookStatus: saveResponse.data.post.facebookStatus,
