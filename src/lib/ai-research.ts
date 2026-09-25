@@ -49,9 +49,6 @@ function stripHtml(value: string) {
 }
 
 async function fetchSource(url: string) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 9000);
-
   try {
     const resource = await fetchPublicResource(url, {
       timeoutMs: 9000,
@@ -73,8 +70,6 @@ async function fetchSource(url: string) {
     return stripHtml(resource.body.toString("utf8")).slice(0, 7000);
   } catch {
     return "";
-  } finally {
-    clearTimeout(timer);
   }
 }
 
