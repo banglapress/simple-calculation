@@ -409,7 +409,7 @@ export default function EditorPostForm({ postId }: { postId: string }) {
   const [featureImageFile, setFeatureImageFile] = useState<File | null>(null);
   const [featureImagePreview, setFeatureImagePreview] = useState<string | null>(null);
   const [galleryImages, setGalleryImages] = useState<string[]>([]);
-  const [imageInsertText, setImageInsertText] = useState<string | null>(null);
+  const [imageInsertUrl, setImageInsertUrl] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
   const [cardPreviewVersion, setCardPreviewVersion] = useState(() => Date.now());
@@ -975,8 +975,8 @@ export default function EditorPostForm({ postId }: { postId: string }) {
                 <LexicalEditor
                   initialHtml={post.content}
                   onChange={(val) => setPost({ ...post, content: val })}
-                  insertText={imageInsertText}
-                  onTextInserted={() => setImageInsertText(null)}
+                  insertImageUrl={imageInsertUrl}
+                  onImageInserted={() => setImageInsertUrl(null)}
                 />
               </div>
 
@@ -1086,7 +1086,7 @@ export default function EditorPostForm({ postId }: { postId: string }) {
                       </div>
                       <button
                         type="button"
-                        onClick={() => setImageInsertText(imageMarker(src))}
+                        onClick={() => setImageInsertUrl(src)}
                         className="shrink-0 rounded-lg bg-blue-600 px-3 py-2 text-xs font-medium text-white"
                       >
                         কার্সারে বসান
