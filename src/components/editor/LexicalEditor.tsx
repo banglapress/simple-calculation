@@ -21,7 +21,7 @@ import {
   REDO_COMMAND,
   UNDO_COMMAND,
 } from "lexical";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { LexicalErrorBoundary } from "@lexical/react/LexicalErrorBoundary";
 import { DecoratorNode, type NodeKey } from "lexical";
 import type { JSX } from "react";
@@ -107,9 +107,12 @@ export function $createArticleImageNode(src: string) {
 
 function EditorInitializer({ html }: { html: string }) {
   const [editor] = useLexicalComposerContext();
+  const initializedRef = useRef(false);
 
   useEffect(() => {
-    if (!html) return;
+    if (!html || initializedRef.current) return;
+
+    initializedRef.current = true;
 
     editor.update(() => {
       const parser = new DOMParser();
@@ -163,6 +166,7 @@ function InsertImagePlugin({
   useEffect(() => {
     if (!imageUrl) return;
 
+    editor.focus();
     editor.update(() => {
       const selection = $getSelection();
       if ($isRangeSelection(selection)) {
