@@ -170,7 +170,49 @@ async function queueItem(feed: {
   return { storyId: story.id, inserted: true, duplicate: false };
 }
 
+async function claimStory(storyId: string) {
+  const now = new Date();
+  const staleBefore = new Date(now.getTime() - 15 * 60 * 1000);
+
+  const claimed = await prisma.deskStory.updateMany({
+    where: {
+      id: storyId,
+      status: { not: "PUBLISHED" },
+      OR: [
+        { autoProcessingStartedAt: null },
+        { autoProcessingStartedAt: { lt: staleBefore } },
+      ],
+    },
+    data: {
+      status: "RESEARCHING",
+      autoProcessingStartedAt: now,
+      autoAttempts: { increment: 1 },
+      lastError: null,
+      warning: null,
+    },
+  });
+
+  return claimed.count === 1;
+}
+
 async function processStory(storyId: string) {
+  const claimed = await claimStory(storyId);
+
+  if (!claimed) {
+    const current = await prisma.deskStory.findUnique({
+      where: { id: storyId },
+      select: { id: true, status: true, autoProcessingStartedAt: true },
+    });
+
+    if (!current) throw new Error("Story not found");
+
+    return {
+      storyId,
+      step: "busy",
+      reason: "story_is_already_being_processed",
+    };
+  }
+
   const story = await prisma.deskStory.findUnique({
     where: { id: storyId },
     include: {
@@ -186,17 +228,6 @@ async function processStory(storyId: string) {
   });
 
   if (!story) throw new Error("Story not found");
-
-  await prisma.deskStory.update({
-    where: { id: storyId },
-    data: {
-      status: "RESEARCHING",
-      autoProcessingStartedAt: new Date(),
-      autoAttempts: { increment: 1 },
-      lastError: null,
-      warning: null,
-    },
-  });
 
   const category = story.category;
   const categoryName = category?.name || "Sports";
