@@ -409,6 +409,7 @@ export default function EditorPostForm({ postId }: { postId: string }) {
   const [featureImageFile, setFeatureImageFile] = useState<File | null>(null);
   const [featureImagePreview, setFeatureImagePreview] = useState<string | null>(null);
   const [galleryImages, setGalleryImages] = useState<string[]>([]);
+  const [imageCaptions, setImageCaptions] = useState<Record<string, string>>({});
   const [imageInsertUrl, setImageInsertUrl] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
@@ -812,6 +813,12 @@ export default function EditorPostForm({ postId }: { postId: string }) {
             ? { ...post, content: post.content.split(imageMarker(url)).join("") }
             : post
         );
+
+        setImageCaptions((captions) => {
+          const next = { ...captions };
+          delete next[url];
+          return next;
+        });
       }
       return current.filter((_, imageIndex) => imageIndex !== index);
     });
@@ -869,7 +876,7 @@ export default function EditorPostForm({ postId }: { postId: string }) {
         galleryImages
       );
       const usedGalleryImages = galleryImages.filter((url) =>
-        currentPost.content.includes(imageMarker(url))
+        contentWithImages.includes(url)
       );
 
       const uploadedImage = currentPost.featureImage || "";
@@ -980,6 +987,9 @@ export default function EditorPostForm({ postId }: { postId: string }) {
                   initialHtml={post.content}
                   onChange={(val) => setPost({ ...post, content: val })}
                   insertImageUrl={imageInsertUrl}
+                  insertImageCaption={
+                    imageInsertUrl ? imageCaptions[imageInsertUrl] || "" : ""
+                  }
                   onImageInserted={clearImageInsert}
                 />
               </div>
@@ -1050,8 +1060,8 @@ export default function EditorPostForm({ postId }: { postId: string }) {
 
             <div className="border-t p-3 space-y-4 sm:p-5">
               <p className="text-sm text-slate-600">
-                ছবি upload করার পর Article-এর যে জায়গায় ছবিটি চান সেখানে cursor রাখুন,
-                তারপর <strong>“কার্সারে বসান”</strong> চাপুন।
+                ছবি upload করার পর ক্যাপশন লিখুন। তারপর Article-এর যে জায়গায় ছবিটি চান সেখানে
+                cursor রেখে <strong>“কার্সারে বসান”</strong> চাপুন।
               </p>
 
               <label className="block w-full cursor-pointer rounded-lg border-2 border-dashed border-slate-300 bg-slate-50 px-4 py-4 text-center text-sm font-medium hover:bg-slate-100">
@@ -1071,37 +1081,58 @@ export default function EditorPostForm({ postId }: { postId: string }) {
                   {galleryImages.map((src, index) => (
                     <div
                       key={src}
-                      className="flex items-center gap-3 rounded-lg border bg-white p-2"
+                      className="rounded-lg border bg-white p-3 space-y-3"
                     >
-                      <Image
-                        src={src}
-                        alt={"Article image " + (index + 1)}
-                        width={96}
-                        height={64}
-                        className="h-16 w-24 shrink-0 rounded object-cover"
-                      />
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs text-slate-500">
-                          ছবি {index + 1}
-                        </p>
-                        <p className="truncate text-xs text-slate-400">
-                          {imageMarker(src)}
-                        </p>
+                      <div className="flex items-center gap-3">
+                        <Image
+                          src={src}
+                          alt={"Article image " + (index + 1)}
+                          width={96}
+                          height={64}
+                          className="h-16 w-24 shrink-0 rounded object-cover"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs text-slate-500">
+                            ছবি {index + 1}
+                          </p>
+                          <p className="text-xs text-slate-400">
+                            Cursor-এ বসানোর আগে caption লিখুন
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeGalleryImage(index)}
+                          className="shrink-0 rounded-lg border px-2 py-2 text-xs"
+                        >
+                          ✕
+                        </button>
                       </div>
+
+                      <div>
+                        <label className="block text-xs font-medium text-slate-600 mb-1">
+                          ছবির ক্যাপশন (বাংলায়)
+                        </label>
+                        <textarea
+                          value={imageCaptions[src] || ""}
+                          onChange={(event) =>
+                            setImageCaptions((current) => ({
+                              ...current,
+                              [src]: event.target.value,
+                            }))
+                          }
+                          rows={2}
+                          className="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:border-blue-500"
+                          placeholder="ছবির নিচে যে ক্যাপশন দেখাবে, তা লিখুন"
+                        />
+                      </div>
+
                       <button
                         type="button"
                         onMouseDown={(event) => event.preventDefault()}
                         onClick={() => setImageInsertUrl(src)}
-                        className="shrink-0 rounded-lg bg-blue-600 px-3 py-2 text-xs font-medium text-white"
+                        className="w-full rounded-lg bg-blue-600 px-3 py-2 text-xs font-medium text-white"
                       >
                         কার্সারে বসান
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => removeGalleryImage(index)}
-                        className="shrink-0 rounded-lg border px-2 py-2 text-xs"
-                      >
-                        ✕
                       </button>
                     </div>
                   ))}

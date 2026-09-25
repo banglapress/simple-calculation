@@ -28,13 +28,14 @@ import type { JSX } from "react";
 
 export class ArticleImageNode extends DecoratorNode<JSX.Element> {
   __src: string;
+  __caption: string;
 
   static getType(): string {
     return "article-image";
   }
 
   static clone(node: ArticleImageNode): ArticleImageNode {
-    return new ArticleImageNode(node.__src, node.__key);
+    return new ArticleImageNode(node.__src, node.__caption, node.__key);
   }
 
   static importDOM() {
@@ -42,9 +43,15 @@ export class ArticleImageNode extends DecoratorNode<JSX.Element> {
       img: () => ({
         conversion: (element: HTMLElement) => {
           const src = element.getAttribute("src");
-          return src ? { node: new ArticleImageNode(src) } : null;
+          if (!src) return null;
+
+          const figure = element.closest("figure");
+          const caption =
+            figure?.querySelector("figcaption")?.textContent?.trim() || "";
+
+          return { node: new ArticleImageNode(src, caption) };
         },
-        priority: 1 as const,
+        priority: 2 as const,
       }),
     };
   }
@@ -53,13 +60,18 @@ export class ArticleImageNode extends DecoratorNode<JSX.Element> {
     type: string;
     version: number;
     src: string;
+    caption?: string;
   }): ArticleImageNode {
-    return new ArticleImageNode(serializedNode.src);
+    return new ArticleImageNode(
+      serializedNode.src,
+      serializedNode.caption || ""
+    );
   }
 
-  constructor(src: string, key?: NodeKey) {
+  constructor(src: string, caption = "", key?: NodeKey) {
     super(key);
     this.__src = src;
+    this.__caption = caption;
   }
 
   exportJSON() {
@@ -67,20 +79,34 @@ export class ArticleImageNode extends DecoratorNode<JSX.Element> {
       type: "article-image",
       version: 1,
       src: this.__src,
+      caption: this.__caption,
     };
   }
 
   exportDOM() {
-    const element = document.createElement("img");
-    element.setAttribute("src", this.__src);
-    element.setAttribute("alt", "");
-    element.setAttribute("class", "my-6 w-full rounded-lg");
-    return { element };
+    const figure = document.createElement("figure");
+    figure.className = "my-6";
+
+    const image = document.createElement("img");
+    image.setAttribute("src", this.__src);
+    image.setAttribute("alt", "");
+    image.setAttribute("class", "w-full rounded-lg");
+    figure.appendChild(image);
+
+    if (this.__caption.trim()) {
+      const caption = document.createElement("figcaption");
+      caption.className =
+        "mt-2 text-center text-sm italic leading-6 text-slate-500 font-[NotoSerifBengali]";
+      caption.textContent = this.__caption.trim();
+      figure.appendChild(caption);
+    }
+
+    return { element: figure };
   }
 
   createDOM() {
     const wrapper = document.createElement("div");
-    wrapper.className = "my-6";
+    wrapper.className = "article-image-node";
     return wrapper;
   }
 
@@ -89,21 +115,28 @@ export class ArticleImageNode extends DecoratorNode<JSX.Element> {
   }
 
   decorate() {
+    const caption = this.__caption.trim();
+
     return (
-      <img
-        src={this.__src}
-        alt=""
-        className="my-6 w-full rounded-lg"
-      />
+      <figure className="my-6">
+        <img
+          src={this.__src}
+          alt=""
+          className="w-full rounded-lg"
+        />
+        {caption ? (
+          <figcaption className="mt-2 text-center text-sm italic leading-6 text-slate-500 font-[NotoSerifBengali]">
+            {caption}
+          </figcaption>
+        ) : null}
+      </figure>
     );
   }
 }
 
-export function $createArticleImageNode(src: string) {
-  return new ArticleImageNode(src);
+export function $createArticleImageNode(src: string, caption = "") {
+  return new ArticleImageNode(src, caption);
 }
-
-
 
 function EditorInitializer({ html }: { html: string }) {
   const [editor] = useLexicalComposerContext();
@@ -156,9 +189,11 @@ function ToolbarButton({
 
 function InsertImagePlugin({
   imageUrl,
+  imageCaption,
   onImageInserted,
 }: {
   imageUrl?: string | null;
+  imageCaption?: string;
   onImageInserted?: () => void;
 }) {
   const [editor] = useLexicalComposerContext();
@@ -170,12 +205,14 @@ function InsertImagePlugin({
     editor.update(() => {
       const selection = $getSelection();
       if ($isRangeSelection(selection)) {
-        selection.insertNodes([$createArticleImageNode(imageUrl)]);
+        selection.insertNodes([
+          $createArticleImageNode(imageUrl, imageCaption || ""),
+        ]);
       }
     });
 
     onImageInserted?.();
-  }, [editor, imageUrl, onImageInserted]);
+  }, [editor, imageUrl, imageCaption, onImageInserted]);
 
   return null;
 }
@@ -256,11 +293,13 @@ export default function LexicalEditor({
   onChange,
   initialHtml = "",
   insertImageUrl,
+  insertImageCaption,
   onImageInserted,
 }: {
   onChange: (html: string) => void;
   initialHtml?: string;
   insertImageUrl?: string | null;
+  insertImageCaption?: string;
   onImageInserted?: () => void;
 }) {
   const initialConfig = {
@@ -273,7 +312,11 @@ export default function LexicalEditor({
   return (
     <LexicalComposer initialConfig={initialConfig}>
       <EditorInitializer html={initialHtml} />
-      <InsertImagePlugin imageUrl={insertImageUrl} onImageInserted={onImageInserted} />
+      <InsertImagePlugin
+        imageUrl={insertImageUrl}
+        imageCaption={insertImageCaption}
+        onImageInserted={onImageInserted}
+      />
 
       <div className="overflow-hidden rounded-xl border bg-white">
         <EditorToolbar />

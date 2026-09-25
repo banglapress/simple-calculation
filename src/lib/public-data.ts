@@ -59,6 +59,7 @@ export function getPublicCategories() {
 
 export function invalidatePublicCategoriesCache() {
   revalidateTag("public-categories");
+  revalidateTag("public-category-v2");
 }
 
 const getCachedCategoryPage = (slug: string) =>
@@ -80,8 +81,11 @@ const getCachedCategoryPage = (slug: string) =>
           },
         },
       }),
-    ["public-category", slug],
-    { revalidate: CATEGORY_REVALIDATE_SECONDS }
+    ["public-category-v2", slug],
+    {
+      revalidate: CATEGORY_REVALIDATE_SECONDS,
+      tags: ["public-category-v2"],
+    }
   )();
 
 export function getPublicCategoryBySlug(slug: string) {
