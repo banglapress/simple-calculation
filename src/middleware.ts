@@ -20,6 +20,13 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // Always allow the login/register pages to render. This is important when
+  // the browser still has an old or revoked NextAuth cookie: the server-side
+  // session check can then route the user back to a real login screen.
+  if (isAuthRoute) {
+    return NextResponse.next();
+  }
+
   let token;
   try {
     token = await getToken({
@@ -28,21 +35,23 @@ export async function middleware(request: NextRequest) {
     });
   } catch (error) {
     console.error("Token verification failed:", error);
-    if (isProtectedRoute) {
-      return NextResponse.redirect(new URL("/login", request.url));
-    }
-    return NextResponse.next();
-  }
-
-  if (token && isAuthRoute) {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
-  }
-
-  if (!token && isProtectedRoute) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  if (pathname.startsWith("/admin") && token?.role !== "ADMIN") {
+  const hasUsableToken = Boolean(
+    token &&
+      token.id &&
+      token.email &&
+      token.role &&
+      typeof token.sessionVersion === "number" &&
+      !token.revoked
+  );
+
+  if (!hasUsableToken) {
+    return NextResponse.redirect(new URL("/login", request.url));
+  }
+
+  if (pathname.startsWith("/admin") && token.role !== "ADMIN") {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
@@ -50,5 +59,11 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/profile/:path*", "/admin/:path*", "/login", "/register"],
+  matcher: [
+    "/dashboard/:path*",
+    "/profile/:path*",
+    "/admin/:path*",
+    "/login",
+    "/register",
+  ],
 };
