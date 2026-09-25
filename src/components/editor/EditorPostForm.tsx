@@ -975,6 +975,8 @@ export default function EditorPostForm({ postId }: { postId: string }) {
                 <LexicalEditor
                   initialHtml={post.content}
                   onChange={(val) => setPost({ ...post, content: val })}
+                  insertText={imageInsertText}
+                  onTextInserted={() => setImageInsertText(null)}
                 />
               </div>
 
