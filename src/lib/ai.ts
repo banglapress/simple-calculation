@@ -63,9 +63,6 @@ function stripHtml(html: string) {
 }
 
 async function fetchSource(url: string) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 12000);
-
   try {
     const resource = await fetchPublicResource(url, {
       timeoutMs: 12000,
@@ -89,8 +86,6 @@ async function fetchSource(url: string) {
     const message =
       error instanceof Error ? error.message : "Source fetch failed";
     throw new Error("Could not fetch " + url + ": " + message);
-  } finally {
-    clearTimeout(timer);
   }
 }
 
