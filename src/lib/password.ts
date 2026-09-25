@@ -2,6 +2,7 @@ const MIN_LENGTH = 8;
 
 /**
  * Password policy: at least 8 characters, at least one letter and one number.
+ * Accepts Latin and Bengali letters/digits.
  */
 export function validatePassword(password: string): {
   ok: boolean;
@@ -14,14 +15,16 @@ export function validatePassword(password: string): {
     };
   }
 
-  if (!/[a-zA-Z debu]/.test(password)) {
+  // Latin a-z/A-Z or Bengali letters
+  if (!/[a-zA-Z\u0980-\u09FF]/.test(password)) {
     return {
       ok: false,
       message: "পাসওয়ার্ডে কমপক্ষে একটি অক্ষর থাকতে হবে।",
     };
   }
 
-  if (!/[0-9০-৯]/.test(password)) {
+  // Western or Bengali digits
+  if (!/[0-9\u09E6-\u09EF]/.test(password)) {
     return {
       ok: false,
       message: "পাসওয়ার্ডে কমপক্ষে একটি সংখ্যা থাকতে হবে।",

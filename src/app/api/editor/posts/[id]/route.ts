@@ -4,6 +4,12 @@ import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { publishPostToFacebook } from "@/lib/post-publishing";
 import { sanitizeHtml } from "@/lib/sanitize-html";
+import {
+  sanitizeImageUrl,
+  sanitizeImageUrlList,
+  sanitizeTags,
+  sanitizeTitle,
+} from "@/lib/input";
 
 function allowed(role?: string | null) {
   return role === "EDITOR" || role === "ADMIN";
@@ -15,15 +21,6 @@ function makeExcerpt(content: string) {
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, 180);
-}
-
-function normalizeGallery(value: unknown) {
-  if (!Array.isArray(value)) return [];
-  return value
-    .filter((item) => typeof item === "string")
-    .map((item) => item.trim())
-    .filter(Boolean)
-    .slice(0, 20);
 }
 
 export async function GET(
@@ -95,12 +92,24 @@ export async function PUT(
       ? "PENDING"
       : "DRAFT";
 
-  if (!String(title || "").trim()) {
+  const safeTitle = sanitizeTitle(title);
+  if (!safeTitle) {
     return NextResponse.json(
       { message: "শিরোনাম খালি রাখা যাবে না" },
       { status: 400 }
     );
   }
+
+  const safeTags = sanitizeTags(tags);
+  const safeFeatureImage = sanitizeImageUrl(featureImage);
+  const safeFacebookImage = sanitizeImageUrl(facebookImageUrl);
+  const safeGallery = sanitizeImageUrlList(galleryImages, 20);
+  const safeContent =
+    typeof content === "string" ? sanitizeHtml(content) : "";
+  const safeCaption =
+    typeof facebookCaption === "string"
+      ? facebookCaption.replace(/[\u0000-\u001F\u007F]/g, "").slice(0, 5000)
+      : undefined;
 
   const categoryIdList = Array.isArray(categoryIds)
     ? categoryIds
@@ -119,9 +128,6 @@ export async function PUT(
       ? facebookAutoPost
       : undefined;
 
-  const safeContent =
-    typeof content === "string" ? sanitizeHtml(content) : "";
-
   try {
     const existing = await prisma.post.findUnique({
       where: { id },
@@ -138,26 +144,17 @@ export async function PUT(
     const updated = await prisma.post.update({
       where: { id },
       data: {
-        title: String(title).trim(),
+        title: safeTitle,
         content: safeContent,
         excerpt: makeExcerpt(safeContent),
-        tags: typeof tags === "string" ? tags : undefined,
+        tags: safeTags,
         status: normalizedStatus,
         placement,
-        featureImage:
-          typeof featureImage === "string"
-            ? featureImage
-            : undefined,
-        facebookImageUrl:
-          typeof facebookImageUrl === "string"
-            ? facebookImageUrl.trim()
-            : undefined,
-        galleryImages: JSON.stringify(normalizeGallery(galleryImages)),
+        featureImage: safeFeatureImage,
+        facebookImageUrl: safeFacebookImage,
+        galleryImages: JSON.stringify(safeGallery),
         isBreaking: Boolean(isBreaking),
-        facebookCaption:
-          typeof facebookCaption === "string"
-            ? facebookCaption
-            : undefined,
+        facebookCaption: safeCaption,
         facebookAutoPost: shouldAutoPost,
         facebookError:
           normalizedStatus !== "PUBLISHED" ? null : undefined,

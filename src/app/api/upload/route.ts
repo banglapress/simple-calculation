@@ -5,6 +5,7 @@ import { getServerSession } from "next-auth";
 import { v2 as cloudinary, UploadApiResponse } from "cloudinary";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { clientIp, rateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import { securityLog } from "@/lib/security-log";
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME!,
@@ -33,6 +34,10 @@ export async function POST(req: NextRequest) {
   }
 
   if (!UPLOAD_ROLES.has(session.user.role || "")) {
+    securityLog("upload_forbidden", {
+      email: session.user.email,
+      role: session.user.role || null,
+    });
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -40,6 +45,7 @@ export async function POST(req: NextRequest) {
   const userKey = session.user.email;
   const limited = rateLimit(`upload:${userKey}:${ip}`, 30, 60 * 60 * 1000); // 30 / hour
   if (!limited.success) {
+    securityLog("upload_rate_limited", { email: userKey, ip });
     return rateLimitResponse(limited.resetAt);
   }
 

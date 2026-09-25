@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { clientIp, rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { validatePassword } from "@/lib/password";
+import { securityLog } from "@/lib/security-log";
+import { stripHtml } from "@/lib/input";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -11,15 +13,17 @@ export async function POST(req: Request) {
     const ip = clientIp(req);
     const limited = rateLimit(`register:${ip}`, 5, 15 * 60 * 1000); // 5 / 15 min
     if (!limited.success) {
+      securityLog("register_rate_limited", { ip });
       return rateLimitResponse(limited.resetAt);
     }
 
     const body = await req.json();
     const email = String(body.email || "").trim().toLowerCase();
-    const name = String(body.name || "").trim() || null;
+    const rawName = typeof body.name === "string" ? stripHtml(body.name) : "";
+    const name = rawName.slice(0, 100) || null;
     const password = String(body.password || "");
 
-    if (!email || !EMAIL_REGEX.test(email)) {
+    if (!email || !EMAIL_REGEX.test(email) || email.length > 254) {
       return NextResponse.json(
         { message: "সঠিক ইমেইল ঠিকানা দিন।" },
         { status: 400 }

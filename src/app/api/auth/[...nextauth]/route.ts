@@ -4,6 +4,9 @@ import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import { compare } from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { rateLimit } from "@/lib/rate-limit";
+import { securityLog } from "@/lib/security-log";
+
+const useSecureCookies = process.env.NODE_ENV === "production";
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
@@ -30,9 +33,10 @@ export const authOptions: NextAuthOptions = {
 
         const email = String(credentials.email).trim().toLowerCase();
 
-        // Rate limit failed login attempts per email (10 attempts / 15 min)
+        // Rate limit login attempts per email (10 / 15 min)
         const limited = rateLimit(`login:${email}`, 10, 15 * 60 * 1000);
         if (!limited.success) {
+          securityLog("login_rate_limited", { email });
           throw new Error("Too many login attempts. Try again later.");
         }
 
@@ -41,11 +45,13 @@ export const authOptions: NextAuthOptions = {
         });
 
         if (!user || !user.password) {
+          securityLog("login_failed", { email, reason: "user_not_found" });
           throw new Error("Invalid credentials");
         }
 
         const isValid = await compare(credentials.password, user.password);
         if (!isValid) {
+          securityLog("login_failed", { email, reason: "bad_password" });
           throw new Error("Invalid credentials");
         }
 
@@ -71,6 +77,19 @@ export const authOptions: NextAuthOptions = {
       session.user.id = token.id;
       session.user.role = token.role;
       return session;
+    },
+  },
+  cookies: {
+    sessionToken: {
+      name: useSecureCookies
+        ? "__Secure-next-auth.session-token"
+        : "next-auth.session-token",
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: useSecureCookies,
+      },
     },
   },
   secret: process.env.NEXTAUTH_SECRET,

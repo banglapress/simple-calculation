@@ -3,6 +3,11 @@ import { getServerSession } from "next-auth";
 import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { sanitizeHtml } from "@/lib/sanitize-html";
+import {
+  sanitizeImageUrl,
+  sanitizeTags,
+  sanitizeTitle,
+} from "@/lib/input";
 
 const VALID_STATUSES = ["DRAFT", "PENDING"] as const;
 const VALID_PLACEMENTS = [
@@ -146,12 +151,18 @@ export async function PUT(
       isBreaking,
     } = body;
 
-    if (!String(title || "").trim()) {
+    const safeTitle = sanitizeTitle(title);
+    if (!safeTitle) {
       return NextResponse.json(
         { message: "Title is required" },
         { status: 400 }
       );
     }
+
+    const safeTags = sanitizeTags(tags);
+    const safeFeatureImage = sanitizeImageUrl(featureImage);
+    const safeContent =
+      typeof content === "string" ? sanitizeHtml(content) : "";
 
     const normalizedCategoryIds = toIdArray(categoryIds, categoryId);
     const normalizedSubcategoryIds = toIdArray(
@@ -195,20 +206,14 @@ export async function PUT(
       "NONE"
     );
 
-    const safeContent =
-      typeof content === "string" ? sanitizeHtml(content) : "";
-
     const post = await prisma.post.update({
       where: { id: result.post.id },
       data: {
-        title: String(title).trim(),
+        title: safeTitle,
         content: safeContent,
         excerpt: makeExcerpt(safeContent),
-        featureImage:
-          typeof featureImage === "string" && featureImage.trim()
-            ? featureImage.trim()
-            : undefined,
-        tags: typeof tags === "string" ? tags : undefined,
+        featureImage: safeFeatureImage,
+        tags: safeTags,
         status: requestedStatus,
         placement: normalizedPlacement,
         isBreaking: Boolean(isBreaking),

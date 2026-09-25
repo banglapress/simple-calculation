@@ -3,6 +3,12 @@ import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "../auth/[...nextauth]/route";
 import { sanitizeHtml } from "@/lib/sanitize-html";
+import {
+  sanitizeImageUrl,
+  sanitizeTags,
+  sanitizeTitle,
+} from "@/lib/input";
+import { securityLog } from "@/lib/security-log";
 
 const VALID_STATUSES = ["DRAFT", "PENDING", "PUBLISHED"] as const;
 const VALID_PLACEMENTS = [
@@ -12,6 +18,8 @@ const VALID_PLACEMENTS = [
   "EDITORS_PICK",
   "TRENDING",
 ] as const;
+
+const WRITE_ROLES = new Set(["REPORTER", "EDITOR", "ADMIN"]);
 
 function makeExcerpt(content: string) {
   return content
@@ -67,6 +75,16 @@ export async function POST(req: NextRequest) {
     isBreaking,
   } = body;
 
+  const safeTitle = sanitizeTitle(title);
+  if (!safeTitle) {
+    return NextResponse.json({ message: "Title is required" }, { status: 400 });
+  }
+
+  const safeTags = sanitizeTags(tags);
+  const safeFeatureImage = sanitizeImageUrl(featureImage) || "";
+  const safeContent =
+    typeof content === "string" ? sanitizeHtml(content) : "";
+
   const normalizedCategoryIds = toIdArray(categoryIds, categoryId);
   const normalizedSubcategoryIds = toIdArray(
     subcategoryIds,
@@ -83,12 +101,6 @@ export async function POST(req: NextRequest) {
     "NONE"
   );
   const normalizedBreaking = Boolean(isBreaking);
-  const safeContent =
-    typeof content === "string" ? sanitizeHtml(content) : "";
-
-  if (!title?.trim()) {
-    return NextResponse.json({ message: "Title is required" }, { status: 400 });
-  }
 
   if (!normalizedCategoryIds.length) {
     return NextResponse.json(
@@ -123,6 +135,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ message: "User not found" }, { status: 404 });
   }
 
+  if (!WRITE_ROLES.has(user.role)) {
+    securityLog("auth_forbidden", {
+      email: session.user.email,
+      role: user.role,
+      action: "post_create",
+    });
+    return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+  }
+
   // A reporter can save a DRAFT, or send it for editorial review.
   // A reporter can never create a PUBLISHED post directly.
   let normalizedReporterStatus = normalizedStatus;
@@ -133,14 +154,14 @@ export async function POST(req: NextRequest) {
   try {
     const post = await prisma.post.create({
       data: {
-        title: title.trim(),
+        title: safeTitle,
         content: safeContent,
         excerpt: makeExcerpt(safeContent),
-        featureImage: featureImage || "",
+        featureImage: safeFeatureImage,
         status: normalizedReporterStatus,
         placement: normalizedPlacement,
         isBreaking: normalizedBreaking,
-        tags,
+        tags: safeTags,
         author: { connect: { id: user.id } },
         categories: {
           connect: normalizedCategoryIds.map((id: number) => ({ id })),
