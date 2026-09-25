@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { rateLimitActor, rateLimitResponse } from "@/lib/rate-limit";
 import { prisma } from "@/lib/prisma";
 import { processOneStory } from "@/lib/desk-newsroom";
 
@@ -14,6 +15,18 @@ export async function POST(req: NextRequest) {
     !["ADMIN", "EDITOR"].includes(session.user.role || "")
   ) {
     return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+  }
+
+  const limited = rateLimitActor(
+    req,
+    session.user.email,
+    "admin-ai-draft",
+    12,
+    60 * 60 * 1000
+  );
+
+  if (!limited.success) {
+    return rateLimitResponse(limited.resetAt);
   }
 
   try {
