@@ -76,6 +76,28 @@ function parseGallery(value?: string | null) {
   }
 }
 
+function imageMarker(url: string) {
+  let hash = 0;
+  for (let index = 0; index < url.length; index += 1) {
+    hash = (hash * 31 + url.charCodeAt(index)) >>> 0;
+  }
+  return "{{IMAGE_" + hash.toString(36).toUpperCase() + "}}";
+}
+
+function expandImageMarkers(content: string, images: string[]) {
+  return content.replace(/\{\{IMAGE_([A-Z0-9]+)\}\}/g, (marker, hash) => {
+    const url = images.find((item) => imageMarker(item) === "{{IMAGE_" + hash + "}}");
+    if (!url) return marker;
+
+    const safeUrl = url.replace(/&/g, "&amp;").replace(/"/g, "&quot;");
+    return (
+      '<figure class="my-6">' +
+      '<img src="' + safeUrl + '" alt="" class="w-full rounded-lg" />' +
+      "</figure>"
+    );
+  });
+}
+
 let bengaliCardFontPromise: Promise<void> | null = null;
 
 async function ensureBengaliCardFont() {
@@ -387,7 +409,7 @@ export default function EditorPostForm({ postId }: { postId: string }) {
   const [featureImageFile, setFeatureImageFile] = useState<File | null>(null);
   const [featureImagePreview, setFeatureImagePreview] = useState<string | null>(null);
   const [galleryImages, setGalleryImages] = useState<string[]>([]);
-  const [galleryFiles, setGalleryFiles] = useState<File[]>([]);
+  const [imageInsertText, setImageInsertText] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
   const [cardPreviewVersion, setCardPreviewVersion] = useState(() => Date.now());
@@ -536,7 +558,7 @@ export default function EditorPostForm({ postId }: { postId: string }) {
 
       const saveResponse = await axios.put("/api/editor/posts/" + postId, {
         title: currentPost.title,
-        content: currentPost.content,
+        content: contentWithImages,
         tags: currentPost.tags,
         isBreaking: currentPost.isBreaking,
         authorId: currentPost.authorId,
@@ -755,33 +777,40 @@ export default function EditorPostForm({ postId }: { postId: string }) {
     }
   };
 
-  const handleGalleryUpload = async () => {
-    if (!galleryFiles.length) return galleryImages;
+  const handleGalleryFilesChange = async (
+    event: ChangeEvent<HTMLInputElement>
+  ) => {
+    const files = Array.from(event.target.files || []).slice(0, 20 - galleryImages.length);
+    event.target.value = "";
 
-    const uploaded = await Promise.all(
-      galleryFiles.map(async (file) => {
-        const formData = new FormData();
-        formData.append("file", file);
+    if (!files.length) return;
 
-        const res = await fetch("/api/upload", {
-          method: "POST",
-          body: formData,
-        });
+    try {
+      setMessage("⏳ Article-এর ভেতরের ছবি upload হচ্ছে...");
 
-        if (!res.ok) throw new Error("Gallery image upload failed");
-
-        const data = await res.json();
-        return data.url as string;
-      })
-    );
-
-    return [...galleryImages, ...uploaded].slice(0, 20);
+      const uploaded = await Promise.all(files.map((file) => uploadFile(file)));
+      setGalleryImages((current) => [...current, ...uploaded].slice(0, 20));
+      setMessage("✅ ছবি upload হয়েছে। Article-এ যেখানে বসাতে চান সেখানে cursor রেখে “কার্সারে বসান” চাপুন।");
+    } catch (error) {
+      setMessage(
+        "❌ " +
+          (error instanceof Error ? error.message : "ছবি upload করা যায়নি")
+      );
+    }
   };
 
   const removeGalleryImage = (index: number) => {
-    setGalleryImages((current) =>
-      current.filter((_, imageIndex) => imageIndex !== index)
-    );
+    setGalleryImages((current) => {
+      const url = current[index];
+      if (url) {
+        setPost((post) =>
+          post
+            ? { ...post, content: post.content.split(imageMarker(url)).join("") }
+            : post
+        );
+      }
+      return current.filter((_, imageIndex) => imageIndex !== index);
+    });
   };
 
   const publishToFacebook = async () => {
@@ -831,10 +860,18 @@ export default function EditorPostForm({ postId }: { postId: string }) {
     setMessage("");
 
     try {
-      const [uploadedImage, uploadedGallery] = await Promise.all([
-        currentPost.featureImage || "",
-        handleGalleryUpload(),
-      ]);
+      const contentWithImages = expandImageMarkers(
+        currentPost.content,
+        galleryImages
+      );
+      const usedGalleryImages = galleryImages.filter((url) =>
+        currentPost.content.includes(imageMarker(url))
+      );
+
+      const uploadedImage = currentPost.featureImage || "";
+      const uploadedGallery = galleryImages.filter(
+        (url) => !usedGalleryImages.includes(url)
+      );
 
       const saveResponse = await axios.put("/api/editor/posts/" + postId, {
         title: currentPost.title,
@@ -1006,45 +1043,62 @@ export default function EditorPostForm({ postId }: { postId: string }) {
             </summary>
 
             <div className="border-t p-3 space-y-4 sm:p-5">
+              <p className="text-sm text-slate-600">
+                ছবি upload করার পর Article-এর যে জায়গায় ছবিটি চান সেখানে cursor রাখুন,
+                তারপর <strong>“কার্সারে বসান”</strong> চাপুন।
+              </p>
+
+              <label className="block w-full cursor-pointer rounded-lg border-2 border-dashed border-slate-300 bg-slate-50 px-4 py-4 text-center text-sm font-medium hover:bg-slate-100">
+                📷 ছবি যোগ করুন
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  onChange={handleGalleryFilesChange}
+                  disabled={galleryImages.length >= 20}
+                />
+              </label>
+
               {galleryImages.length > 0 && (
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
+                <div className="space-y-3">
                   {galleryImages.map((src, index) => (
                     <div
-                      key={src + index}
-                      className="relative border rounded-lg p-1 bg-white"
+                      key={src}
+                      className="flex items-center gap-3 rounded-lg border bg-white p-2"
                     >
                       <Image
                         src={src}
-                        alt={"Gallery " + (index + 1)}
-                        width={300}
-                        height={200}
-                        className="w-full aspect-video object-cover rounded"
+                        alt={"Article image " + (index + 1)}
+                        width={96}
+                        height={64}
+                        className="h-16 w-24 shrink-0 rounded object-cover"
                       />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs text-slate-500">
+                          ছবি {index + 1}
+                        </p>
+                        <p className="truncate text-xs text-slate-400">
+                          {imageMarker(src)}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setImageInsertText(imageMarker(src))}
+                        className="shrink-0 rounded-lg bg-blue-600 px-3 py-2 text-xs font-medium text-white"
+                      >
+                        কার্সারে বসান
+                      </button>
                       <button
                         type="button"
                         onClick={() => removeGalleryImage(index)}
-                        className="absolute top-2 right-2 bg-black/70 text-white rounded px-2 py-1 text-xs"
+                        className="shrink-0 rounded-lg border px-2 py-2 text-xs"
                       >
-                        ✕ মুছুন
+                        ✕
                       </button>
                     </div>
                   ))}
                 </div>
-              )}
-
-              <input
-                type="file"
-                accept="image/*"
-                multiple
-                onChange={(e: ChangeEvent<HTMLInputElement>) =>
-                  setGalleryFiles(Array.from(e.target.files || []).slice(0, 20))
-                }
-              />
-
-              {galleryFiles.length > 0 && (
-                <p className="text-xs text-blue-700">
-                  নতুন {galleryFiles.length}টি ছবি save করার সময় upload হবে।
-                </p>
               )}
             </div>
           </details>
