@@ -68,85 +68,20 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, user }) {
       if (user?.id) {
-        const currentUser = await prisma.user.findUnique({
-          where: { id: user.id },
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            role: true,
-            sessionVersion: true,
-          },
-        });
-
-        if (!currentUser) {
-          token.revoked = true;
-          token.id = undefined;
-          token.email = undefined;
-          token.name = undefined;
-          token.role = undefined;
-          token.sessionVersion = undefined;
-          return token;
-        }
-
-        token.id = currentUser.id;
-        token.email = currentUser.email;
-        token.name = currentUser.name;
-        token.role = currentUser.role;
-        token.sessionVersion = currentUser.sessionVersion;
-        token.revoked = false;
-        return token;
+        token.id = user.id;
+        token.role = user.role;
+        token.sessionVersion = user.sessionVersion;
       }
-
-      if (token.id) {
-        const currentUser = await prisma.user.findUnique({
-          where: { id: token.id },
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            role: true,
-            sessionVersion: true,
-          },
-        });
-
-        if (
-          !currentUser ||
-          token.sessionVersion !== currentUser.sessionVersion
-        ) {
-          token.revoked = true;
-          token.id = undefined;
-          token.email = undefined;
-          token.name = undefined;
-          token.role = undefined;
-          token.sessionVersion = undefined;
-          return token;
-        }
-
-        token.id = currentUser.id;
-        token.email = currentUser.email;
-        token.name = currentUser.name;
-        token.role = currentUser.role;
-      }
-
       return token;
     },
     async session({ session, token }) {
-      if (token.revoked || !token.id || !token.email) {
-        session.user.id = undefined;
-        session.user.email = undefined;
-        session.user.name = undefined;
-        session.user.role = undefined;
-        session.user.sessionVersion = undefined;
-        return session;
-      }
-
       session.user.id = token.id;
       session.user.role = token.role;
       session.user.sessionVersion = token.sessionVersion;
       return session;
     },
   },
+
   cookies: {
     sessionToken: {
       name: useSecureCookies
