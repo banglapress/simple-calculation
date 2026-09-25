@@ -23,6 +23,87 @@ import {
 } from "lexical";
 import { useEffect, useState } from "react";
 import { LexicalErrorBoundary } from "@lexical/react/LexicalErrorBoundary";
+import { DecoratorNode, type EditorConfig, type LexicalNode, type NodeKey } from "lexical";
+import type { JSX } from "react";
+
+export class ArticleImageNode extends DecoratorNode<JSX.Element> {
+  __src: string;
+
+  static getType(): string {
+    return "article-image";
+  }
+
+  static clone(node: ArticleImageNode): ArticleImageNode {
+    return new ArticleImageNode(node.__src, node.__key);
+  }
+
+  static importDOM() {
+    return {
+      img: () => ({
+        conversion: (element: HTMLElement) => {
+          const src = element.getAttribute("src");
+          return src ? { node: new ArticleImageNode(src) } : null;
+        },
+        priority: 1,
+      }),
+    };
+  }
+
+  static importJSON(serializedNode: {
+    type: string;
+    version: number;
+    src: string;
+  }): ArticleImageNode {
+    return new ArticleImageNode(serializedNode.src);
+  }
+
+  constructor(src: string, key?: NodeKey) {
+    super(key);
+    this.__src = src;
+  }
+
+  exportJSON() {
+    return {
+      type: "article-image",
+      version: 1,
+      src: this.__src,
+    };
+  }
+
+  exportDOM() {
+    const element = document.createElement("img");
+    element.setAttribute("src", this.__src);
+    element.setAttribute("alt", "");
+    element.setAttribute("class", "my-6 w-full rounded-lg");
+    return { element };
+  }
+
+  createDOM(_config: EditorConfig) {
+    const wrapper = document.createElement("div");
+    wrapper.className = "my-6";
+    return wrapper;
+  }
+
+  updateDOM() {
+    return false;
+  }
+
+  decorate() {
+    return (
+      <img
+        src={this.__src}
+        alt=""
+        className="my-6 w-full rounded-lg"
+      />
+    );
+  }
+}
+
+export function $createArticleImageNode(src: string) {
+  return new ArticleImageNode(src);
+}
+
+
 
 function EditorInitializer({ html }: { html: string }) {
   const [editor] = useLexicalComposerContext();
@@ -70,30 +151,31 @@ function ToolbarButton({
   );
 }
 
-function InsertTextPlugin({
-  insertText,
-  onTextInserted,
+function InsertImagePlugin({
+  imageUrl,
+  onImageInserted,
 }: {
-  insertText?: string | null;
-  onTextInserted?: () => void;
+  imageUrl?: string | null;
+  onImageInserted?: () => void;
 }) {
   const [editor] = useLexicalComposerContext();
 
   useEffect(() => {
-    if (!insertText) return;
+    if (!imageUrl) return;
 
     editor.update(() => {
       const selection = $getSelection();
       if ($isRangeSelection(selection)) {
-        selection.insertText(insertText);
+        selection.insertNodes([$createArticleImageNode(imageUrl)]);
       }
     });
 
-    onTextInserted?.();
-  }, [editor, insertText, onTextInserted]);
+    onImageInserted?.();
+  }, [editor, imageUrl, onImageInserted]);
 
   return null;
 }
+
 
 function EditorToolbar() {
   const [editor] = useLexicalComposerContext();
@@ -181,12 +263,13 @@ export default function LexicalEditor({
     namespace: "BanglaEditor",
     theme: {},
     onError: (e: Error) => console.error("Lexical error:", e),
+    nodes: [ArticleImageNode],
   };
 
   return (
     <LexicalComposer initialConfig={initialConfig}>
       <EditorInitializer html={initialHtml} />
-      <InsertTextPlugin insertText={insertText} onTextInserted={onTextInserted} />
+      <InsertImagePlugin imageUrl={insertImageUrl} onImageInserted={onImageInserted} />
 
       <div className="overflow-hidden rounded-xl border bg-white">
         <EditorToolbar />
