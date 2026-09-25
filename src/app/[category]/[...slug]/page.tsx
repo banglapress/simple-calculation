@@ -212,7 +212,10 @@ async function PostPage({ post }: { post: NonNullable<PublicPost> }) {
               year: "numeric",
               month: "long",
               day: "numeric",
-              timeStyle: "medium",
+              hour: "numeric",
+              minute: "numeric",
+              second: "numeric",
+              hour12: true,
             }).format(new Date(post.createdAt))}
           </div>
 
