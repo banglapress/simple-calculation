@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { rateLimitActor, rateLimitResponse } from "@/lib/rate-limit";
 import { generateSportsArticle } from "@/lib/ai";
 
 export const runtime = "nodejs";
@@ -17,6 +18,18 @@ export async function POST(req: NextRequest) {
       { message: "AI newsroom access denied" },
       { status: 403 }
     );
+  }
+
+  const limited = rateLimitActor(
+    req,
+    session.user.email,
+    "ai-article",
+    10,
+    60 * 60 * 1000
+  );
+
+  if (!limited.success) {
+    return rateLimitResponse(limited.resetAt);
   }
 
   try {
