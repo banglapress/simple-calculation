@@ -70,6 +70,31 @@ function ToolbarButton({
   );
 }
 
+function InsertTextPlugin({
+  insertText,
+  onTextInserted,
+}: {
+  insertText?: string | null;
+  onTextInserted?: () => void;
+}) {
+  const [editor] = useLexicalComposerContext();
+
+  useEffect(() => {
+    if (!insertText) return;
+
+    editor.update(() => {
+      const selection = $getSelection();
+      if ($isRangeSelection(selection)) {
+        selection.insertText(insertText);
+      }
+    });
+
+    onTextInserted?.();
+  }, [editor, insertText, onTextInserted]);
+
+  return null;
+}
+
 function EditorToolbar() {
   const [editor] = useLexicalComposerContext();
   const [canUndo, setCanUndo] = useState(false);
@@ -152,21 +177,6 @@ export default function LexicalEditor({
   insertText?: string | null;
   onTextInserted?: () => void;
 }) {
-  const [editor] = useLexicalComposerContext();
-
-  useEffect(() => {
-    if (!insertText) return;
-
-    editor.update(() => {
-      const selection = $getSelection();
-      if ($isRangeSelection(selection)) {
-        selection.insertText(insertText);
-      }
-    });
-
-    onTextInserted?.();
-  }, [editor, insertText, onTextInserted]);
-
   const initialConfig = {
     namespace: "BanglaEditor",
     theme: {},
@@ -176,6 +186,7 @@ export default function LexicalEditor({
   return (
     <LexicalComposer initialConfig={initialConfig}>
       <EditorInitializer html={initialHtml} />
+      <InsertTextPlugin insertText={insertText} onTextInserted={onTextInserted} />
 
       <div className="overflow-hidden rounded-xl border bg-white">
         <EditorToolbar />
