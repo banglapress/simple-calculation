@@ -43,7 +43,6 @@ export async function middleware(request: NextRequest) {
       token.id &&
       token.email &&
       token.role &&
-      typeof token.sessionVersion === "number" &&
       !token.revoked
   );
 
