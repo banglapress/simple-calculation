@@ -23,7 +23,7 @@ import {
 } from "lexical";
 import { useEffect, useState } from "react";
 import { LexicalErrorBoundary } from "@lexical/react/LexicalErrorBoundary";
-import { DecoratorNode, type EditorConfig, type NodeKey } from "lexical";
+import { DecoratorNode, type NodeKey } from "lexical";
 import type { JSX } from "react";
 
 export class ArticleImageNode extends DecoratorNode<JSX.Element> {
@@ -78,7 +78,7 @@ export class ArticleImageNode extends DecoratorNode<JSX.Element> {
     return { element };
   }
 
-  createDOM(_config: EditorConfig) {
+  createDOM() {
     const wrapper = document.createElement("div");
     wrapper.className = "my-6";
     return wrapper;
