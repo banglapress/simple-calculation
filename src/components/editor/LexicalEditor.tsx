@@ -44,7 +44,7 @@ export class ArticleImageNode extends DecoratorNode<JSX.Element> {
           const src = element.getAttribute("src");
           return src ? { node: new ArticleImageNode(src) } : null;
         },
-        priority: 1,
+        priority: 1 as const,
       }),
     };
   }
