@@ -64,6 +64,43 @@ export function clientIp(req: Request): string {
   return req.headers.get("x-real-ip") || "unknown";
 }
 
+export function rateLimitActor(
+  req: Request,
+  actor: string,
+  scope: string,
+  limit: number,
+  windowMs: number
+): RateLimitResult {
+  const normalizedActor = actor.trim().toLowerCase() || "anonymous";
+  const ip = clientIp(req);
+
+  const actorResult = rateLimit(
+    scope + ":actor:" + normalizedActor,
+    limit,
+    windowMs
+  );
+  const ipResult = rateLimit(
+    scope + ":ip:" + ip,
+    Math.max(limit * 3, limit),
+    windowMs
+  );
+
+  if (!actorResult.success) return actorResult;
+  if (!ipResult.success) return ipResult;
+
+  return {
+    success: true,
+    remaining: Math.min(
+      actorResult.remaining,
+      ipResult.remaining
+    ),
+    resetAt: Math.max(
+      actorResult.resetAt,
+      ipResult.resetAt
+    ),
+  };
+}
+
 export function rateLimitResponse(resetAt: number) {
   const retryAfter = Math.max(1, Math.ceil((resetAt - Date.now()) / 1000));
   return new Response(
