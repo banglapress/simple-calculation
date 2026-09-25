@@ -898,11 +898,11 @@ export default function EditorPostForm({ postId }: { postId: string }) {
   if (loading || !post) return <p>⏳ লোড হচ্ছে...</p>;
 
   return (
-    <form onSubmit={handleUpdate} className="space-y-5">
-      <div className="grid xl:grid-cols-[minmax(0,1fr)_390px] gap-6 items-start">
+    <form onSubmit={handleUpdate} className="min-w-0 space-y-4 sm:space-y-5">
+      <div className="grid min-w-0 gap-4 sm:gap-6 xl:grid-cols-[minmax(0,1fr)_390px] items-start">
         <main className="min-w-0 space-y-5">
           <section className="rounded-xl border bg-white shadow-sm">
-            <div className="p-5">
+            <div className="p-3 sm:p-5">
               <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -930,7 +930,7 @@ export default function EditorPostForm({ postId }: { postId: string }) {
                 type="text"
                 value={post.title}
                 onChange={(e) => setPost({ ...post, title: e.target.value })}
-                className="w-full border-0 border-b border-slate-200 px-1 pb-4 text-3xl font-bold outline-none focus:border-blue-500"
+                className="w-full min-w-0 border-0 border-b border-slate-200 px-1 pb-3 text-2xl font-bold leading-tight outline-none focus:border-blue-500 sm:pb-4 sm:text-3xl"
                 placeholder="শিরোনাম"
               />
 
@@ -966,7 +966,7 @@ export default function EditorPostForm({ postId }: { postId: string }) {
                 </span>
               </summary>
 
-              <div className="border-t px-5 py-4 space-y-3">
+              <div className="border-t px-3 py-3 space-y-3 sm:px-5 sm:py-4">
                 <p className="text-sm">
                   <strong>Story:</strong> {post.deskStory.titleHint}
                 </p>
@@ -1005,9 +1005,9 @@ export default function EditorPostForm({ postId }: { postId: string }) {
               </span>
             </summary>
 
-            <div className="border-t p-5 space-y-4">
+            <div className="border-t p-3 space-y-4 sm:p-5">
               {galleryImages.length > 0 && (
-                <div className="grid sm:grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
                   {galleryImages.map((src, index) => (
                     <div
                       key={src + index}
