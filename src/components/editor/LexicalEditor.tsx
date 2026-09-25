@@ -10,7 +10,9 @@ import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext
 import { $generateNodesFromDOM } from "@lexical/html";
 import {
   $getRoot,
+  $getSelection,
   $insertNodes,
+  $isRangeSelection,
   CAN_REDO_COMMAND,
   CAN_UNDO_COMMAND,
   COMMAND_PRIORITY_LOW,
@@ -142,10 +144,29 @@ function EditorToolbar() {
 export default function LexicalEditor({
   onChange,
   initialHtml = "",
+  insertText,
+  onTextInserted,
 }: {
   onChange: (html: string) => void;
   initialHtml?: string;
+  insertText?: string | null;
+  onTextInserted?: () => void;
 }) {
+  const [editor] = useLexicalComposerContext();
+
+  useEffect(() => {
+    if (!insertText) return;
+
+    editor.update(() => {
+      const selection = $getSelection();
+      if ($isRangeSelection(selection)) {
+        selection.insertText(insertText);
+      }
+    });
+
+    onTextInserted?.();
+  }, [editor, insertText, onTextInserted]);
+
   const initialConfig = {
     namespace: "BanglaEditor",
     theme: {},
