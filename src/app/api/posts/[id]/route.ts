@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { sanitizeHtml } from "@/lib/sanitize-html";
 
 const VALID_STATUSES = ["DRAFT", "PENDING"] as const;
 const VALID_PLACEMENTS = [
@@ -194,12 +195,15 @@ export async function PUT(
       "NONE"
     );
 
+    const safeContent =
+      typeof content === "string" ? sanitizeHtml(content) : "";
+
     const post = await prisma.post.update({
       where: { id: result.post.id },
       data: {
         title: String(title).trim(),
-        content: typeof content === "string" ? content : "",
-        excerpt: makeExcerpt(typeof content === "string" ? content : ""),
+        content: safeContent,
+        excerpt: makeExcerpt(safeContent),
         featureImage:
           typeof featureImage === "string" && featureImage.trim()
             ? featureImage.trim()

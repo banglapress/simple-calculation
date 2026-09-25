@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { publishPostToFacebook } from "@/lib/post-publishing";
+import { sanitizeHtml } from "@/lib/sanitize-html";
 
 function allowed(role?: string | null) {
   return role === "EDITOR" || role === "ADMIN";
@@ -118,6 +119,9 @@ export async function PUT(
       ? facebookAutoPost
       : undefined;
 
+  const safeContent =
+    typeof content === "string" ? sanitizeHtml(content) : "";
+
   try {
     const existing = await prisma.post.findUnique({
       where: { id },
@@ -135,8 +139,8 @@ export async function PUT(
       where: { id },
       data: {
         title: String(title).trim(),
-        content: typeof content === "string" ? content : "",
-        excerpt: makeExcerpt(typeof content === "string" ? content : ""),
+        content: safeContent,
+        excerpt: makeExcerpt(safeContent),
         tags: typeof tags === "string" ? tags : undefined,
         status: normalizedStatus,
         placement,

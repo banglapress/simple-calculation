@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { hash } from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { validatePassword } from "@/lib/password";
 
 async function requireAdmin() {
   const session = await getServerSession(authOptions);
@@ -46,9 +47,12 @@ export async function POST(req: NextRequest) {
     if (!email || !password) {
       return NextResponse.json({ message: "Email ও password আবশ্যক।" }, { status: 400 });
     }
-    if (password.length < 8) {
-      return NextResponse.json({ message: "Password কমপক্ষে ৮ অক্ষরের হতে হবে।" }, { status: 400 });
+
+    const passwordCheck = validatePassword(password);
+    if (!passwordCheck.ok) {
+      return NextResponse.json({ message: passwordCheck.message }, { status: 400 });
     }
+
     if (!["READER", "REPORTER", "EDITOR", "ADMIN"].includes(role)) {
       return NextResponse.json({ message: "Invalid role" }, { status: 400 });
     }
@@ -97,8 +101,11 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ message: "Invalid role" }, { status: 400 });
     }
 
-    if (password !== undefined && password !== "" && String(password).length < 8) {
-      return NextResponse.json({ message: "Password কমপক্ষে ৮ অক্ষরের হতে হবে।" }, { status: 400 });
+    if (password !== undefined && password !== "") {
+      const passwordCheck = validatePassword(String(password));
+      if (!passwordCheck.ok) {
+        return NextResponse.json({ message: passwordCheck.message }, { status: 400 });
+      }
     }
 
     const data: {

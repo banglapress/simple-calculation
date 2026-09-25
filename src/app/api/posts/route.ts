@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "../auth/[...nextauth]/route";
+import { sanitizeHtml } from "@/lib/sanitize-html";
 
 const VALID_STATUSES = ["DRAFT", "PENDING", "PUBLISHED"] as const;
 const VALID_PLACEMENTS = [
@@ -82,6 +83,8 @@ export async function POST(req: NextRequest) {
     "NONE"
   );
   const normalizedBreaking = Boolean(isBreaking);
+  const safeContent =
+    typeof content === "string" ? sanitizeHtml(content) : "";
 
   if (!title?.trim()) {
     return NextResponse.json({ message: "Title is required" }, { status: 400 });
@@ -131,8 +134,8 @@ export async function POST(req: NextRequest) {
     const post = await prisma.post.create({
       data: {
         title: title.trim(),
-        content: content ?? "",
-        excerpt: makeExcerpt(content ?? ""),
+        content: safeContent,
+        excerpt: makeExcerpt(safeContent),
         featureImage: featureImage || "",
         status: normalizedReporterStatus,
         placement: normalizedPlacement,

@@ -1,12 +1,19 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import { clientIp, rateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import { validatePassword } from "@/lib/password";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const MIN_PASSWORD_LENGTH = 8;
 
 export async function POST(req: Request) {
   try {
+    const ip = clientIp(req);
+    const limited = rateLimit(`register:${ip}`, 5, 15 * 60 * 1000); // 5 / 15 min
+    if (!limited.success) {
+      return rateLimitResponse(limited.resetAt);
+    }
+
     const body = await req.json();
     const email = String(body.email || "").trim().toLowerCase();
     const name = String(body.name || "").trim() || null;
@@ -19,9 +26,10 @@ export async function POST(req: Request) {
       );
     }
 
-    if (password.length < MIN_PASSWORD_LENGTH) {
+    const passwordCheck = validatePassword(password);
+    if (!passwordCheck.ok) {
       return NextResponse.json(
-        { message: `পাসওয়ার্ড কমপক্ষে ${MIN_PASSWORD_LENGTH} অক্ষরের হতে হবে।` },
+        { message: passwordCheck.message },
         { status: 400 }
       );
     }

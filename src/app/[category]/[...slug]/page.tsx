@@ -12,6 +12,7 @@ import {
   getPublicSubcategoryPosts,
   getRelatedPosts,
 } from "@/lib/public-data";
+import { sanitizeHtml } from "@/lib/sanitize-html";
 
 export const revalidate = 60;
 
@@ -192,6 +193,8 @@ async function PostPage({ post }: { post: NonNullable<PublicPost> }) {
     .filter((item) => item.placement === "TRENDING")
     .slice(0, 6);
 
+  const safeContent = sanitizeHtml(post.content);
+
   return (
     <>
       <Navbar />
@@ -225,7 +228,7 @@ async function PostPage({ post }: { post: NonNullable<PublicPost> }) {
 
           <div
             className="prose prose-neutral max-w-none font-[NotoSerifBengali] text-xl text-neutral-700"
-            dangerouslySetInnerHTML={{ __html: post.content }}
+            dangerouslySetInnerHTML={{ __html: safeContent }}
           />
 
 
