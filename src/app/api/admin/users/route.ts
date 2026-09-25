@@ -113,12 +113,17 @@ export async function PATCH(req: NextRequest) {
       email?: string;
       role?: "READER" | "REPORTER" | "EDITOR" | "ADMIN";
       password?: string;
+      sessionVersion?: { increment: number };
     } = {};
 
     if (name !== undefined) data.name = String(name).trim() || null;
     if (email !== undefined) data.email = String(email).trim().toLowerCase();
     if (role !== undefined) data.role = role;
     if (password) data.password = await hash(String(password), 12);
+
+    if (email !== undefined || role !== undefined || password) {
+      data.sessionVersion = { increment: 1 };
+    }
 
     const user = await prisma.user.update({
       where: { id: String(id) },
