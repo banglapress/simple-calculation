@@ -1,3 +1,5 @@
+import { fetchPublicResource } from "@/lib/safe-fetch";
+
 type GeminiJson = Record<string, unknown>;
 
 type GeminiResult = {
@@ -65,23 +67,24 @@ async function fetchSource(url: string) {
   const timer = setTimeout(() => controller.abort(), 12000);
 
   try {
-    const response = await fetch(url, {
-      method: "GET",
-      signal: controller.signal,
+    const resource = await fetchPublicResource(url, {
+      timeoutMs: 12000,
+      maxBytes: 2 * 1024 * 1024,
+      allowedContentTypes: [
+        "text/",
+        "application/xhtml+xml",
+        "application/xml",
+        "application/json",
+      ],
       headers: {
         "User-Agent":
           "Mozilla/5.0 (compatible; KhelaTV-AI-Newsroom/1.0; +https://www.khelatv.com)",
-        Accept: "text/html,application/xhtml+xml,text/plain;q=0.9,*/*;q=0.8",
+        Accept:
+          "text/html,application/xhtml+xml,text/plain,application/xml,application/json;q=0.9,*/*;q=0.8",
       },
-      cache: "no-store",
     });
 
-    const text = await response.text();
-    if (!response.ok) {
-      throw new Error("Source returned HTTP " + response.status);
-    }
-
-    return stripHtml(text).slice(0, 14000);
+    return stripHtml(resource.body.toString("utf8")).slice(0, 14000);
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Source fetch failed";
