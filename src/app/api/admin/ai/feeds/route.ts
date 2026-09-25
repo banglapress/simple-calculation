@@ -152,7 +152,7 @@ export async function PUT(req: NextRequest) {
 
   const limited = rateLimitActor(
     req,
-    session.user.email || "unknown",
+    session?.user?.email || "unknown",
     "admin-rss-test",
     30,
     60 * 60 * 1000
