@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "../api/auth/[...nextauth]/route";
 import Provider from "@/components/SessionProvider";
@@ -12,7 +13,7 @@ export default async function DashboardLayout({
   const session = await getServerSession(authOptions);
 
   if (!session?.user?.email) {
-    return <div className="p-4 text-red-600">আপনার session আর বৈধ নয়। আবার লগইন করুন।</div>;
+    redirect("/login");
   }
 
   return (
