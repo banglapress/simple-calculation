@@ -1,3 +1,5 @@
+import { fetchPublicResource } from "@/lib/safe-fetch";
+
 type ResearchJson = {
   summary?: string;
   key_facts?: string[];
@@ -51,21 +53,24 @@ async function fetchSource(url: string) {
   const timer = setTimeout(() => controller.abort(), 9000);
 
   try {
-    const response = await fetch(url, {
-      signal: controller.signal,
+    const resource = await fetchPublicResource(url, {
+      timeoutMs: 9000,
+      maxBytes: 2 * 1024 * 1024,
+      allowedContentTypes: [
+        "text/",
+        "application/xhtml+xml",
+        "application/xml",
+        "application/json",
+      ],
       headers: {
         "User-Agent":
           "Mozilla/5.0 (compatible; KhelaTV-Research/1.0; +https://www.khelatv.com)",
-        Accept: "text/html,application/xhtml+xml,text/plain;q=0.9,*/*;q=0.8",
+        Accept:
+          "text/html,application/xhtml+xml,text/plain,application/xml,application/json;q=0.9,*/*;q=0.8",
       },
-      cache: "no-store",
     });
 
-    if (!response.ok) {
-      return "";
-    }
-
-    return stripHtml(await response.text()).slice(0, 7000);
+    return stripHtml(resource.body.toString("utf8")).slice(0, 7000);
   } catch {
     return "";
   } finally {
