@@ -23,7 +23,7 @@ import {
 } from "lexical";
 import { useEffect, useState } from "react";
 import { LexicalErrorBoundary } from "@lexical/react/LexicalErrorBoundary";
-import { DecoratorNode, type EditorConfig, type LexicalNode, type NodeKey } from "lexical";
+import { DecoratorNode, type EditorConfig, type NodeKey } from "lexical";
 import type { JSX } from "react";
 
 export class ArticleImageNode extends DecoratorNode<JSX.Element> {
@@ -251,13 +251,13 @@ function EditorToolbar() {
 export default function LexicalEditor({
   onChange,
   initialHtml = "",
-  insertText,
-  onTextInserted,
+  insertImageUrl,
+  onImageInserted,
 }: {
   onChange: (html: string) => void;
   initialHtml?: string;
-  insertText?: string | null;
-  onTextInserted?: () => void;
+  insertImageUrl?: string | null;
+  onImageInserted?: () => void;
 }) {
   const initialConfig = {
     namespace: "BanglaEditor",
