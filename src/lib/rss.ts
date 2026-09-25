@@ -1,3 +1,5 @@
+import { fetchPublicResource } from "@/lib/safe-fetch";
+
 export type RSSItem = {
   title: string;
   link: string;
@@ -115,21 +117,25 @@ export function filterRSSItems(
 }
 
 export async function fetchRSSFeed(url: string): Promise<RSSItem[]> {
-  const response = await fetch(url, {
+  const resource = await fetchPublicResource(url, {
+    timeoutMs: 10000,
+    maxBytes: 2 * 1024 * 1024,
+    allowedContentTypes: [
+      "text/",
+      "application/rss+xml",
+      "application/atom+xml",
+      "application/xml",
+      "application/xhtml+xml",
+    ],
     headers: {
       "User-Agent":
         "Mozilla/5.0 (compatible; KhelaTV-RSS-Desk/1.0; +https://www.khelatv.com)",
       Accept:
-        "application/rss+xml, application/atom+xml, application/xml, text/xml;q=0.9, */*;q=0.8",
+        "application/rss+xml, application/atom+xml, application/xml, text/xml, text/html;q=0.9, */*;q=0.8",
     },
-    cache: "no-store",
   });
 
-  if (!response.ok) {
-    throw new Error("RSS feed returned HTTP " + response.status);
-  }
-
-  const xml = await response.text();
+  const xml = resource.body.toString("utf8");
   const items: RSSItem[] = [];
 
   const rssBlocks =
