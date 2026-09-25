@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { rateLimitActor, rateLimitResponse } from "@/lib/rate-limit";
 import {
   cloudflareFacebookImageConfigured,
   defaultFacebookImagePrompt,
@@ -18,6 +19,18 @@ export async function POST(
   const session = await getServerSession(authOptions);
   if (!session?.user?.role || !["EDITOR", "ADMIN"].includes(session.user.role)) {
     return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+  }
+
+  const limited = rateLimitActor(
+    req,
+    session.user.email,
+    "facebook-ai-image",
+    12,
+    60 * 60 * 1000
+  );
+
+  if (!limited.success) {
+    return rateLimitResponse(limited.resetAt);
   }
 
   if (!cloudflareFacebookImageConfigured()) {
