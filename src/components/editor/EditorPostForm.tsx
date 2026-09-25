@@ -2,7 +2,7 @@
 
 "use client";
 
-import { useEffect, useState, FormEvent, ChangeEvent } from "react";
+import { useCallback, useEffect, useState, FormEvent, ChangeEvent } from "react";
 import axios from "axios";
 import dynamic from "next/dynamic";
 import Image from "next/image";
@@ -413,6 +413,10 @@ export default function EditorPostForm({ postId }: { postId: string }) {
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
   const [cardPreviewVersion, setCardPreviewVersion] = useState(() => Date.now());
+
+  const clearImageInsert = useCallback(() => {
+    setImageInsertUrl(null);
+  }, []);
 
   useEffect(() => {
     async function fetchData() {
@@ -976,7 +980,7 @@ export default function EditorPostForm({ postId }: { postId: string }) {
                   initialHtml={post.content}
                   onChange={(val) => setPost({ ...post, content: val })}
                   insertImageUrl={imageInsertUrl}
-                  onImageInserted={() => setImageInsertUrl(null)}
+                  onImageInserted={clearImageInsert}
                 />
               </div>
 
