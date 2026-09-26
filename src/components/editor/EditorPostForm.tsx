@@ -6,6 +6,9 @@ import { useCallback, useEffect, useState, FormEvent, ChangeEvent } from "react"
 import axios from "axios";
 import dynamic from "next/dynamic";
 import Image from "next/image";
+import CloudinaryGalleryPicker, {
+  type CloudinaryGalleryAsset,
+} from "@/components/editor/CloudinaryGalleryPicker";
 
 const LexicalEditor = dynamic(
   () => import("@/components/editor/LexicalEditor"),
@@ -406,11 +409,12 @@ export default function EditorPostForm({ postId }: { postId: string }) {
   const [aiImageBusy, setAiImageBusy] = useState(false);
   const [aiImagePrompt, setAiImagePrompt] = useState("");
   const [aiGeneratedImageUrl, setAiGeneratedImageUrl] = useState<string | null>(null);
-  const [featureImageFile, setFeatureImageFile] = useState<File | null>(null);
-  const [featureImagePreview, setFeatureImagePreview] = useState<string | null>(null);
   const [galleryImages, setGalleryImages] = useState<string[]>([]);
   const [imageCaptions, setImageCaptions] = useState<Record<string, string>>({});
   const [imageInsertUrl, setImageInsertUrl] = useState<string | null>(null);
+  const [cloudinaryPickerMode, setCloudinaryPickerMode] = useState<
+    "feature" | "article" | null
+  >(null);
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
   const [cardPreviewVersion, setCardPreviewVersion] = useState(() => Date.now());
@@ -624,43 +628,20 @@ export default function EditorPostForm({ postId }: { postId: string }) {
     }
   };
 
-  const handleFeatureImageChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-
-    if (!file) {
-      setFeatureImageFile(null);
-      setFeatureImagePreview(null);
-      e.target.value = "";
-      return;
-    }
-
-    const previewUrl = URL.createObjectURL(file);
-    setFeatureImageFile(file);
-    setFeatureImagePreview(previewUrl);
-    setMessage(
-      "ছবি বাছাই করা হয়েছে। এখন “এই ছবি ব্যবহার করুন” চাপুন।"
-    );
-    e.target.value = "";
-  };
-
-  const useSelectedFeatureImage = async () => {
-    if (!featureImageFile || !post) return;
+  const useCloudinaryFeatureImage = async (asset: CloudinaryGalleryAsset) => {
+    if (!post) return;
 
     const currentPost = post;
+    const imageUrl = String(asset.url || "").trim();
+
+    if (!imageUrl) return;
 
     setFeatureImageBusy(true);
-    setMessage("");
+    setMessage("⏳ Cloudinary-এর ছবিটি Cover Photo ও Facebook Card হিসেবে প্রস্তুত করা হচ্ছে...");
 
     try {
-      const localImageFile = featureImageFile;
-
-      setMessage("⏳ Unicode বাংলা Facebook Card তৈরি হচ্ছে...");
-
-      const cardFile = await makeFacebookCard(localImageFile);
-      const [url, cardUrl] = await Promise.all([
-        uploadFile(localImageFile),
-        uploadFile(cardFile),
-      ]);
+      const cardFile = await makeFacebookCard(imageUrl);
+      const cardUrl = await uploadFile(cardFile);
 
       const response = await axios.put("/api/editor/posts/" + postId, {
         title: currentPost.title,
@@ -669,7 +650,7 @@ export default function EditorPostForm({ postId }: { postId: string }) {
         isBreaking: currentPost.isBreaking,
         authorId: currentPost.authorId,
         status: currentPost.status,
-        featureImage: url,
+        featureImage: imageUrl,
         facebookImageUrl: cardUrl,
         galleryImages: parseGallery(currentPost.galleryImages),
         placement: currentPost.placement,
@@ -680,54 +661,71 @@ export default function EditorPostForm({ postId }: { postId: string }) {
       });
 
       const saved = response.data?.post;
-      const savedFeatureImage = String(saved?.featureImage || url).trim();
 
       setPost({
         ...currentPost,
-        featureImage: savedFeatureImage,
-        facebookImageUrl: saved?.facebookImageUrl || cardUrl,
+        featureImage: String(saved?.featureImage || imageUrl).trim(),
+        facebookImageUrl: String(saved?.facebookImageUrl || cardUrl).trim(),
         facebookStatus: saved?.facebookStatus || "READY",
         facebookError: null,
       });
 
-      setFeatureImageFile(null);
-      if (featureImagePreview) {
-        URL.revokeObjectURL(featureImagePreview);
-      }
-      setFeatureImagePreview(null);
       setCardPreviewVersion(Date.now());
+      setCloudinaryPickerMode(null);
 
       try {
         const captionResponse = await axios.post(
           "/api/editor/posts/" + postId + "/facebook-caption"
         );
+
         setPost((current) =>
           current
             ? { ...current, facebookCaption: captionResponse.data.caption }
             : current
         );
+
         setMessage(
-          "✅ ছবি Article Cover হয়েছে, Unicode বাংলা Facebook Card তৈরি হয়েছে এবং Facebook Caption তৈরি হয়েছে।"
+          "✅ Cloudinary-এর ছবি Cover Photo হয়েছে, Facebook Card তৈরি হয়েছে এবং Caption তৈরি হয়েছে।"
         );
       } catch {
         setMessage(
-          "✅ ছবি Article Cover হয়েছে এবং Unicode বাংলা Facebook Card তৈরি হয়েছে। Caption তৈরি করা যায়নি।"
+          "✅ Cloudinary-এর ছবি Cover Photo হয়েছে এবং Facebook Card তৈরি হয়েছে। Caption তৈরি করা যায়নি।"
         );
       }
     } catch (error) {
-      setMessage(
-        "❌ " +
-          (axios.isAxiosError(error)
-            ? error.response?.data?.message ||
-              error.response?.data?.error ||
-              "ছবিটি ব্যবহার করা যায়নি"
-            : error instanceof Error
-              ? error.message
-              : "ছবিটি ব্যবহার করা যায়নি")
-      );
+      const responseMessage = axios.isAxiosError(error)
+        ? error.response?.data?.message ||
+          error.response?.data?.error ||
+          "Cloudinary-এর ছবিটি ব্যবহার করা যায়নি"
+        : error instanceof Error
+          ? error.message
+          : "Cloudinary-এর ছবিটি ব্যবহার করা যায়নি";
+
+      setMessage("❌ " + responseMessage);
     } finally {
       setFeatureImageBusy(false);
     }
+  };
+
+  const handleCloudinaryAssetSelect = async (asset: CloudinaryGalleryAsset) => {
+    if (cloudinaryPickerMode === "feature") {
+      await useCloudinaryFeatureImage(asset);
+      return;
+    }
+
+    const imageUrl = String(asset.url || "").trim();
+    if (!imageUrl) return;
+
+    setGalleryImages((current) =>
+      current.includes(imageUrl)
+        ? current
+        : [...current, imageUrl].slice(0, 20)
+    );
+    setImageInsertUrl(imageUrl);
+    setCloudinaryPickerMode(null);
+    setMessage(
+      "✅ Cloudinary থেকে ছবি নেওয়া হয়েছে। Article-এর নির্দিষ্ট জায়গায় cursor রেখে “কার্সারে বসান” চাপুন।"
+    );
   };
 
   const regenerateFacebookCard = async () => {
@@ -1060,21 +1058,21 @@ export default function EditorPostForm({ postId }: { postId: string }) {
 
             <div className="border-t p-3 space-y-4 sm:p-5">
               <p className="text-sm text-slate-600">
-                ছবি upload করার পর ক্যাপশন লিখুন। তারপর Article-এর যে জায়গায় ছবিটি চান সেখানে
+                Cloudinary থেকে ছবি নেওয়ার পর ক্যাপশন লিখুন। তারপর Article-এর যে জায়গায় ছবিটি চান সেখানে
                 cursor রেখে <strong>“কার্সারে বসান”</strong> চাপুন।
               </p>
 
-              <label className="block w-full cursor-pointer rounded-lg border-2 border-dashed border-slate-300 bg-slate-50 px-4 py-4 text-center text-sm font-medium hover:bg-slate-100">
-                📷 ছবি যোগ করুন
-                <input
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  className="hidden"
-                  onChange={handleGalleryFilesChange}
-                  disabled={galleryImages.length >= 20}
-                />
-              </label>
+              <button
+                type="button"
+                onClick={() => setCloudinaryPickerMode("article")}
+                disabled={galleryImages.length >= 20}
+                className="w-full rounded-lg border-2 border-dashed border-slate-300 bg-slate-50 px-4 py-4 text-center text-sm font-medium hover:bg-slate-100 disabled:opacity-50"
+              >
+                ☁️ Cloudinary Gallery থেকে ছবি নিন
+              </button>
+              <p className="text-xs text-slate-500">
+                প্রয়োজনীয় ছবি না থাকলে Gallery-এর ভেতর থেকেই নতুন ছবি upload করতে পারবেন।
+              </p>
 
               {galleryImages.length > 0 && (
                 <div className="space-y-3">
@@ -1326,52 +1324,21 @@ export default function EditorPostForm({ postId }: { postId: string }) {
             </summary>
 
             <div className="border-t p-4 space-y-4">
-              <label className="block bg-blue-600 text-white px-4 py-2.5 rounded-lg text-sm text-center cursor-pointer">
-                🖼️ ছবি বাছাই করুন
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  disabled={featureImageBusy}
-                  onChange={handleFeatureImageChange}
-                />
-              </label>
+              <button
+                type="button"
+                onClick={() => setCloudinaryPickerMode("feature")}
+                disabled={featureImageBusy}
+                className="w-full bg-blue-600 disabled:opacity-50 text-white px-4 py-2.5 rounded-lg text-sm text-center font-medium"
+              >
+                ☁️ Cloudinary Gallery থেকে Cover Photo বাছাই করুন
+              </button>
 
-              {featureImagePreview ? (
-                <div className="space-y-3">
-                  <img
-                    src={featureImagePreview}
-                    alt="Selected feature image preview"
-                    className="w-full max-h-[360px] object-contain rounded-lg border bg-slate-50"
-                  />
+              <p className="text-xs text-slate-500">
+                প্রয়োজনীয় ছবি আগে Gallery-তে খুঁজুন। না থাকলে Gallery-এর ভেতর থেকেই
+                আপনার ডিভাইস থেকে নতুন ছবি upload করতে পারবেন।
+              </p>
 
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={useSelectedFeatureImage}
-                      disabled={featureImageBusy}
-                      className="bg-green-700 disabled:opacity-50 text-white px-3 py-2 rounded-lg text-sm font-medium"
-                    >
-                      {featureImageBusy ? "⏳ হচ্ছে..." : "✅ ব্যবহার করুন"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (featureImagePreview) {
-                          URL.revokeObjectURL(featureImagePreview);
-                        }
-                        setFeatureImageFile(null);
-                        setFeatureImagePreview(null);
-                        setMessage("");
-                      }}
-                      disabled={featureImageBusy}
-                      className="border px-3 py-2 rounded-lg text-sm"
-                    >
-                      ✕ বাতিল
-                    </button>
-                  </div>
-                </div>
-              ) : post.featureImage ? (
+              {post.featureImage ? (
                 <img
                   src={post.featureImage}
                   alt="Current Feature Image"
@@ -1571,6 +1538,18 @@ export default function EditorPostForm({ postId }: { postId: string }) {
           {message}
         </div>
       )}
+      <CloudinaryGalleryPicker
+        open={cloudinaryPickerMode !== null}
+        title={
+          cloudinaryPickerMode === "feature"
+            ? "Cover Photo — Cloudinary Gallery"
+            : "Article-এর ছবি — Cloudinary Gallery"
+        }
+        onClose={() => {
+          if (!featureImageBusy) setCloudinaryPickerMode(null);
+        }}
+        onSelect={handleCloudinaryAssetSelect}
+      />
     </form>
   );
 }
