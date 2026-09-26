@@ -2,7 +2,7 @@
 
 "use client";
 
-import { useCallback, useEffect, useState, FormEvent, ChangeEvent } from "react";
+import { useCallback, useEffect, useState, FormEvent } from "react";
 import axios from "axios";
 import dynamic from "next/dynamic";
 import Image from "next/image";
@@ -628,7 +628,7 @@ export default function EditorPostForm({ postId }: { postId: string }) {
     }
   };
 
-  const useCloudinaryFeatureImage = async (asset: CloudinaryGalleryAsset) => {
+  const handleCloudinaryFeatureImage = async (asset: CloudinaryGalleryAsset) => {
     if (!post) return;
 
     const currentPost = post;
@@ -709,7 +709,7 @@ export default function EditorPostForm({ postId }: { postId: string }) {
 
   const handleCloudinaryAssetSelect = async (asset: CloudinaryGalleryAsset) => {
     if (cloudinaryPickerMode === "feature") {
-      await useCloudinaryFeatureImage(asset);
+      await handleCloudinaryFeatureImage(asset);
       return;
     }
 
@@ -780,27 +780,6 @@ export default function EditorPostForm({ postId }: { postId: string }) {
     }
   };
 
-  const handleGalleryFilesChange = async (
-    event: ChangeEvent<HTMLInputElement>
-  ) => {
-    const files = Array.from(event.target.files || []).slice(0, 20 - galleryImages.length);
-    event.target.value = "";
-
-    if (!files.length) return;
-
-    try {
-      setMessage("⏳ Article-এর ভেতরের ছবি upload হচ্ছে...");
-
-      const uploaded = await Promise.all(files.map((file) => uploadFile(file)));
-      setGalleryImages((current) => [...current, ...uploaded].slice(0, 20));
-      setMessage("✅ ছবি upload হয়েছে। Article-এ যেখানে বসাতে চান সেখানে cursor রেখে “কার্সারে বসান” চাপুন।");
-    } catch (error) {
-      setMessage(
-        "❌ " +
-          (error instanceof Error ? error.message : "ছবি upload করা যায়নি")
-      );
-    }
-  };
 
   const removeGalleryImage = (index: number) => {
     setGalleryImages((current) => {
