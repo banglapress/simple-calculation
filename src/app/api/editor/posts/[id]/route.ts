@@ -203,3 +203,61 @@ export async function PUT(
     );
   }
 }
+
+
+export async function DELETE(
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
+  void request;
+
+  const session = await getServerSession(authOptions);
+  if (!allowed(session?.user?.role)) {
+    return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+  }
+
+  const { id } = await context.params;
+
+  if (!id) {
+    return NextResponse.json(
+      { message: "Post ID is required" },
+      { status: 400 }
+    );
+  }
+
+  try {
+    const existing = await prisma.post.findUnique({
+      where: { id },
+      select: { id: true },
+    });
+
+    if (!existing) {
+      return NextResponse.json(
+        { message: "Post not found" },
+        { status: 404 }
+      );
+    }
+
+    await prisma.post.delete({
+      where: { id },
+    });
+
+    return NextResponse.json({
+      message: "পোস্ট মুছে ফেলা হয়েছে",
+      id,
+    });
+  } catch (error) {
+    console.error("EDITOR POST DELETE ERROR:", error);
+
+    const message =
+      error instanceof Error ? error.message : "Failed to delete post";
+
+    return NextResponse.json(
+      {
+        message: "পোস্ট মুছে ফেলা যায়নি",
+        detail: message,
+      },
+      { status: 500 }
+    );
+  }
+}

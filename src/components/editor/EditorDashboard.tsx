@@ -133,6 +133,26 @@ export default function EditorDashboard() {
     }
   };
 
+  const deletePost = async (id: string, title: string) => {
+    const confirmed = confirm(
+      `আপনি কি এই পোস্টটি স্থায়ীভাবে মুছে ফেলতে চান?\\n\\n"${title}"\\n\\nএই কাজটি পূর্বাবস্থায় ফেরানো যাবে না।`
+    );
+    if (!confirmed) return;
+
+    try {
+      await axios.delete("/api/editor/posts/" + id);
+      alert("✅ পোস্টটি মুছে ফেলা হয়েছে");
+      await fetchPosts();
+    } catch (error) {
+      alert(
+        "❌ " +
+          (axios.isAxiosError(error)
+            ? error.response?.data?.message || "পোস্ট মুছে ফেলা যায়নি"
+            : "পোস্ট মুছে ফেলা যায়নি")
+      );
+    }
+  };
+
   const publishFacebook = async (id: string) => {
     try {
       const response = await axios.post(
@@ -230,6 +250,7 @@ export default function EditorDashboard() {
                   post={post}
                   onPublish={publishPost}
                   onPublishFacebook={publishFacebook}
+                  onDelete={deletePost}
                 />
               ))}
             </div>
@@ -248,6 +269,7 @@ function PostCard({
   post: Post;
   onPublish: (id: string) => void;
   onPublishFacebook: (id: string) => void;
+  onDelete: (id: string, title: string) => void;
 }) {
   return (
     <article className="border rounded-xl bg-white p-4 hover:border-slate-300 transition">
@@ -312,6 +334,14 @@ function PostCard({
           >
             ✏️ এডিট
           </Link>
+
+          <button
+            type="button"
+            onClick={() => onDelete(post.id, post.title)}
+            className="rounded-lg border border-red-200 px-3 py-2 text-sm text-red-700 hover:bg-red-50"
+          >
+            🗑️ ডিলিট
+          </button>
 
           {post.status === "PENDING" && (
             <button
