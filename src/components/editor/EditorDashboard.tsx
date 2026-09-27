@@ -265,6 +265,7 @@ function PostCard({
   post,
   onPublish,
   onPublishFacebook,
+  onDelete,
 }: {
   post: Post;
   onPublish: (id: string) => void;
