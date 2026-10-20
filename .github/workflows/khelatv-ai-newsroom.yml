@@ -1,8 +1,6 @@
 name: KhelaTV AI Newsroom
 
 on:
-  schedule:
-    - cron: "*/30 * * * *"
   workflow_dispatch:
 
 jobs:
