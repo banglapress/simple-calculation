@@ -54,6 +54,8 @@ export default function EditorDashboard() {
   const [activeTab, setActiveTab] = useState<Tab>("PENDING");
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
+  const [newsroomRunning, setNewsroomRunning] = useState(false);
+  const [newsroomMessage, setNewsroomMessage] = useState("");
 
   const fetchPosts = async () => {
     try {
@@ -100,6 +102,34 @@ export default function EditorDashboard() {
         new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
   }, [activeTab, posts]);
+
+  const runNewsroom = async () => {
+    setNewsroomRunning(true);
+    setNewsroomMessage("");
+
+    try {
+      const response = await axios.post("/api/admin/ai/run", { limit: 4 });
+      setNewsroomMessage(
+        "✅ নিউজরুম রান শেষ: " +
+          response.data.draftCount +
+          "টি ড্রাফট, " +
+          response.data.reviewCount +
+          "টি রিভিউ, " +
+          response.data.errorCount +
+          "টি এরর।"
+      );
+      await fetchPosts();
+    } catch (error) {
+      setNewsroomMessage(
+        "❌ " +
+          (axios.isAxiosError(error)
+            ? error.response?.data?.message || "AI Newsroom চালানো যায়নি"
+            : "AI Newsroom চালানো যায়নি")
+      );
+    } finally {
+      setNewsroomRunning(false);
+    }
+  };
 
   const publishPost = async (id: string) => {
     const confirmPublish = confirm("আপনি কি এই পোস্টটি প্রকাশ করতে চান?");
@@ -192,16 +222,39 @@ export default function EditorDashboard() {
                 রিপোর্টারের পাঠানো খবর আগে পেন্ডিং ট্যাবে, প্রকাশিত খবর আলাদা ট্যাবে থাকবে।
               </p>
             </div>
-            <button
-              type="button"
-              onClick={fetchPosts}
-              disabled={loading}
-              className="border rounded-lg px-3 py-2 text-sm hover:bg-gray-50 disabled:opacity-50"
-            >
-              {loading ? "লোড হচ্ছে..." : "↻ রিফ্রেশ"}
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={runNewsroom}
+                disabled={newsroomRunning}
+                className="rounded-lg bg-purple-700 px-4 py-2 text-sm font-medium text-white hover:bg-purple-800 disabled:opacity-50"
+              >
+                {newsroomRunning ? "⏳ Newsroom চলছে..." : "▶️ Run Newsroom Now"}
+              </button>
+              <button
+                type="button"
+                onClick={fetchPosts}
+                disabled={loading}
+                className="border rounded-lg px-3 py-2 text-sm hover:bg-gray-50 disabled:opacity-50"
+              >
+                {loading ? "লোড হচ্ছে..." : "↻ রিফ্রেশ"}
+              </button>
+            </div>
           </div>
         </div>
+
+        {newsroomMessage && (
+          <div
+            className={
+              "mx-4 mt-4 rounded-lg px-4 py-3 text-sm " +
+              (newsroomMessage.startsWith("❌")
+                ? "bg-red-50 text-red-700"
+                : "bg-green-50 text-green-700")
+            }
+          >
+            {newsroomMessage}
+          </div>
+        )}
 
         <div className="px-4 pt-4">
           <div className="flex flex-wrap gap-2 border-b">
