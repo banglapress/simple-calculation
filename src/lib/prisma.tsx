@@ -24,8 +24,8 @@ const datasourceUrl = withConnectionTimeout(process.env.DATABASE_URL);
 
 export const prisma =
   globalThis.prisma ||
-  new PrismaClient(
-    datasourceUrl ? { datasources: { db: { url: datasourceUrl } } } : {}
-  );
+  (datasourceUrl
+    ? new PrismaClient({ datasources: { db: { url: datasourceUrl } } })
+    : new PrismaClient());
 
 if (process.env.NODE_ENV !== "production") globalThis.prisma = prisma;
