@@ -15,7 +15,7 @@ function tokenMatches(expected: string, provided: string): boolean {
 }
 
 function plainText(value: string): string {
-  return value.replace(/<[^>]*>/g, " ").replace(/[\\u0000-\\u001F\\u007F]/g, " ").replace(/\\s+/g, " ").trim();
+  return value.replace(/<[^>]*>/g, " ").replace(/[\u0000-\u001F\u007F]/g, " ").replace(/\s+/g, " ").trim();
 }
 
 function duplicateResponse(post: { id: string; status: string }) {
@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
   }
 
   const auth = request.headers.get("authorization") || "";
-  const match = auth.match(/^Bearer\\s+(.+)$/i);
+  const match = auth.match(/^Bearer\s+(.+)$/i);
   const providedToken = match?.[1]?.trim() || "";
   if (!providedToken || !tokenMatches(expectedToken, providedToken)) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
