@@ -69,6 +69,7 @@ model Post {
   galleryImages      String?        @db.Text
   featureImage       String
   sourceUrl          String?        @db.Text
+  externalDraftId    String?        @unique
   tags               String?
   status             PostStatus     @default(DRAFT)
   isBreaking         Boolean        @default(false)
