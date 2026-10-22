@@ -243,6 +243,8 @@ const publicPostSelect = {
   id: true,
   title: true,
   content: true,
+  seoTitle: true,
+  seoDescription: true,
   featureImage: true,
   galleryImages: true,
   tags: true,

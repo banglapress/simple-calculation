@@ -350,13 +350,15 @@ function buildPostMetadata(
     .replace(/<[^>]+>/g, "")
     .replace(/\s+/g, " ");
   const shortDescription = plainText.slice(0, 160).trim();
+  const metaTitle = post.seoTitle?.trim() || post.title;
+  const metaDescription = post.seoDescription?.trim() || shortDescription || post.title;
 
   return {
-    title: post.title,
-    description: shortDescription || post.title,
+    title: metaTitle,
+    description: metaDescription,
     openGraph: {
-      title: post.title,
-      description: shortDescription || post.title,
+      title: metaTitle,
+      description: metaDescription,
       type: "article",
       url: fullUrl,
       images: [
@@ -370,8 +372,8 @@ function buildPostMetadata(
     },
     twitter: {
       card: "summary_large_image",
-      title: post.title,
-      description: shortDescription || post.title,
+      title: metaTitle,
+      description: metaDescription,
       images: [post.featureImage],
     },
     alternates: { canonical: fullUrl },

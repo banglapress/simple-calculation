@@ -66,6 +66,8 @@ model Post {
   title              String
   content            String         @db.Text
   excerpt            String?        @db.Text
+  seoTitle           String?
+  seoDescription     String?        @db.Text
   galleryImages      String?        @db.Text
   featureImage       String
   sourceUrl          String?        @db.Text

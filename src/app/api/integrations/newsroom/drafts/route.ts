@@ -109,8 +109,11 @@ export async function POST(request: NextRequest) {
   }
 
   const excerptInput = typeof payload.excerpt === "string" ? payload.excerpt : "";
-  const seoDescription = typeof payload.seoDescription === "string" ? payload.seoDescription : "";
-  const excerpt = plainText(excerptInput || seoDescription).slice(0, 600) || contentText.slice(0, 180);
+  const seoDescriptionInput = typeof payload.seoDescription === "string" ? payload.seoDescription : "";
+  const seoTitleInput = typeof payload.seoTitle === "string" ? payload.seoTitle : "";
+  const seoTitle = plainText(seoTitleInput).slice(0, 200) || null;
+  const seoDescription = plainText(seoDescriptionInput).slice(0, 320) || null;
+  const excerpt = plainText(excerptInput || seoDescriptionInput).slice(0, 600) || contentText.slice(0, 180);
   const imageInput = typeof payload.featureImageUrl === "string" ? payload.featureImageUrl : "";
   const featureImage = sanitizeImageUrl(imageInput) || "";
   const rawTags = Array.isArray(payload.tags)
@@ -125,6 +128,8 @@ export async function POST(request: NextRequest) {
         title: safeTitle,
         content: safeContent,
         excerpt,
+        seoTitle,
+        seoDescription,
         featureImage,
         tags,
         status: "DRAFT",
