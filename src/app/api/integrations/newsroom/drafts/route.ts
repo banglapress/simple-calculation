@@ -9,7 +9,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 function signatureMatches(secret: string, timestamp: string, rawBody: string, signature: string): boolean {
-  if (!/^\\d{10}$/.test(timestamp) || !/^[a-f0-9]{64}$/i.test(signature)) return false;
+  if (!/^\d{10}$/.test(timestamp) || !/^[a-f0-9]{64}$/i.test(signature)) return false;
   const time = Number(timestamp);
   if (!Number.isFinite(time) || Math.abs(Math.floor(Date.now() / 1000) - time) > 300) return false;
   const expected = createHmac("sha256", secret).update(timestamp + "." + rawBody).digest();
