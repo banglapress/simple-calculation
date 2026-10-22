@@ -1,4 +1,4 @@
-import { timingSafeEqual } from "node:crypto";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
@@ -8,10 +8,13 @@ import { sanitizeImageUrl, sanitizeTags, sanitizeTitle } from "@/lib/input";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-function tokenMatches(expected: string, provided: string): boolean {
-  const a = Buffer.from(expected, "utf8");
-  const b = Buffer.from(provided, "utf8");
-  return a.length === b.length && timingSafeEqual(a, b);
+function signatureMatches(secret: string, timestamp: string, rawBody: string, signature: string): boolean {
+  if (!/^\\d{10}$/.test(timestamp) || !/^[a-f0-9]{64}$/i.test(signature)) return false;
+  const time = Number(timestamp);
+  if (!Number.isFinite(time) || Math.abs(Math.floor(Date.now() / 1000) - time) > 300) return false;
+  const expected = createHmac("sha256", secret).update(timestamp + "." + rawBody).digest();
+  const provided = Buffer.from(signature, "hex");
+  return expected.length === provided.length && timingSafeEqual(expected, provided);
 }
 
 function plainText(value: string): string {
@@ -29,25 +32,30 @@ function duplicateResponse(post: { id: string; status: string }) {
 }
 
 export async function POST(request: NextRequest) {
-  const expectedToken = process.env.NEWSROOM_INTEGRATION_TOKEN?.trim();
-  if (!expectedToken || expectedToken.length < 32) {
+  const integrationSecret = process.env.NEWSROOM_INTEGRATION_TOKEN?.trim();
+  if (!integrationSecret || integrationSecret.length < 32) {
     return NextResponse.json({ message: "Newsroom integration is not configured on KhelaTV." }, { status: 503 });
   }
 
-  const auth = request.headers.get("authorization") || "";
-  const match = auth.match(/^Bearer\s+(.+)$/i);
-  const providedToken = match?.[1]?.trim() || "";
-  if (!providedToken || !tokenMatches(expectedToken, providedToken)) {
-    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+  let rawBody = "";
+  try {
+    rawBody = await request.text();
+    if (rawBody.length > 100000) {
+      return NextResponse.json({ message: "Request body is too large." }, { status: 413 });
+    }
+  } catch {
+    return NextResponse.json({ message: "A valid JSON request body is required." }, { status: 400 });
+  }
+
+  const timestamp = request.headers.get("x-newsroom-timestamp") || "";
+  const signature = request.headers.get("x-newsroom-signature") || "";
+  if (!signatureMatches(integrationSecret, timestamp, rawBody, signature)) {
+    return NextResponse.json({ message: "Unauthorized or expired integration signature." }, { status: 401 });
   }
 
   let body: unknown;
   try {
-    const raw = await request.text();
-    if (raw.length > 100000) {
-      return NextResponse.json({ message: "Request body is too large." }, { status: 413 });
-    }
-    body = JSON.parse(raw);
+    body = JSON.parse(rawBody);
   } catch {
     return NextResponse.json({ message: "A valid JSON request body is required." }, { status: 400 });
   }
